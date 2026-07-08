@@ -160,8 +160,8 @@ def main():
 
     font_big = pygame.font.SysFont("malgungothic,arial", 44, bold=True)
     font_mid = pygame.font.SysFont("malgungothic,arial", 26, bold=True)
-    font_small = pygame.font.SysFont("malgungothic,arial", 18)
-    font_tiny = pygame.font.SysFont("malgungothic,arial", 15)
+    font_small = pygame.font.SysFont("malgungothic,arial", 22)
+    font_tiny = pygame.font.SysFont("malgungothic,arial", 20, bold=True)
 
     rects = button_rects()
 
@@ -174,9 +174,10 @@ def main():
             "score": 0,
             "lives": 5,
             "spawn_timer": 0,
-            "spawn_interval": 90,
-            "min_speed": 1.2,
-            "max_speed": 2.0,
+            "spawn_interval": 175,
+            "min_speed": 0.55,
+            "max_speed": 0.9,
+            "max_on_screen": 2,
             "game_over": False,
             "started": False,
         }
@@ -232,14 +233,15 @@ def main():
 
         if state["started"] and not state["game_over"]:
             state["spawn_timer"] += 1
-            if state["spawn_timer"] >= state["spawn_interval"]:
+            if (state["spawn_timer"] >= state["spawn_interval"]
+                    and len(state["enemies"]) < state["max_on_screen"]):
                 state["spawn_timer"] = 0
                 name, n, m10, v = gen_acid()
                 x = random.randint(60, WIDTH - 60)
                 speed = random.uniform(state["min_speed"], state["max_speed"])
                 state["enemies"].append(Enemy(name, n, m10, v, x, speed))
-                state["spawn_interval"] = max(38, state["spawn_interval"] - 1)
-                state["max_speed"] = min(4.5, state["max_speed"] + 0.02)
+                state["spawn_interval"] = max(110, state["spawn_interval"] - 0.3)
+                state["max_speed"] = min(1.6, state["max_speed"] + 0.004)
 
             for b in state["bullets"]:
                 b.update()
