@@ -24,6 +24,7 @@ DIM_TEXT_COLOR = (150, 158, 176)
 SUB_DIGITS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 FEEDBACK_FRAMES = 60  # 1초 (60fps 기준)
 TIME_LIMIT_FRAMES = 5 * FPS  # 문제당 제한시간 5초
+QUESTIONS_PER_GAME = 10
 
 SHAPES = ["직선형", "평면삼각형", "정사면체형", "삼각뿔형", "굽은형"]
 
@@ -103,7 +104,7 @@ def main():
     retry_btn = BaseButton((WIDTH / 2 - 90, HEIGHT / 2 + 80, 180, 52), "다시 도전하기")
 
     def reset_game():
-        order = random.sample(MOLECULE_LIST, len(MOLECULE_LIST))
+        order = random.sample(MOLECULE_LIST, QUESTIONS_PER_GAME)
         question = build_question(order[0])
         return {
             "order": order,
@@ -235,7 +236,8 @@ def main():
                          "분자 모양 퀴즈",
                          ["분자식을 보고 VSEPR 모형에 따른 분자 모양을 골라보세요.",
                           "직선형 / 평면삼각형 / 정사면체형 / 삼각뿔형 / 굽은형",
-                          "버튼 클릭 또는 숫자키 1~4로 선택합니다. 문제당 제한시간은 5초입니다."])
+                          f"30개 분자 중 {QUESTIONS_PER_GAME}개를 무작위로 출제합니다. 문제당 제한시간은 5초입니다.",
+                          "버튼 클릭 또는 숫자키 1~4로 선택합니다."])
             start_btn.draw(screen, font_small)
         elif state["game_over"]:
             overlay_text(screen, font_big, font_small,

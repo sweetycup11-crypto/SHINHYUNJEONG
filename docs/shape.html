@@ -154,7 +154,7 @@
       </div>
       <div class="readout">
         <span class="label">남은 문제</span>
-        <span class="value remain mono" id="remainVal">30</span>
+        <span class="value remain mono" id="remainVal">10</span>
       </div>
     </div>
   </header>
@@ -175,7 +175,7 @@
       <h2>분자 모양 퀴즈</h2>
       <p>
         제시된 분자식을 보고 VSEPR 모형에 따른 분자 모양을 골라보세요.
-        직선형 · 평면삼각형 · 정사면체형 · 삼각뿔형 · 굽은형, 30개 분자가 매번 새로운 순서로 출제됩니다.
+        직선형 · 평면삼각형 · 정사면체형 · 삼각뿔형 · 굽은형, 30개 분자 중 10개가 매번 무작위로 출제됩니다.
         문제당 제한시간은 5초이며, 시간 안에 고르지 못하면 오답으로 처리됩니다.
       </p>
       <p><span class="kbd">카드 클릭</span> 또는 <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> 키로 선택</p>
@@ -238,6 +238,7 @@
   }
 
   const TIME_LIMIT_MS = 5000;
+  const QUESTIONS_PER_GAME = 10;
 
   const scoreVal = document.getElementById("scoreVal");
   const remainVal = document.getElementById("remainVal");
@@ -255,7 +256,7 @@
 
   let state = null;
   function freshState() {
-    const order = shuffle(MOLECULE_LIST);
+    const order = shuffle(MOLECULE_LIST).slice(0, QUESTIONS_PER_GAME);
     return {
       order,
       index: 0,
