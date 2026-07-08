@@ -23,6 +23,7 @@ DIM_TEXT_COLOR = (150, 158, 176)
 
 SUB_DIGITS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 FEEDBACK_FRAMES = 60  # 1초 (60fps 기준)
+TIME_LIMIT_FRAMES = 5 * FPS  # 문제당 제한시간 5초
 
 SHAPES = ["직선형", "평면삼각형", "정사면체형", "삼각뿔형", "굽은형"]
 
@@ -110,8 +111,9 @@ def main():
             "question": question,
             "buttons": make_choice_buttons(question["choices"]),
             "score": 0,
-            "feedback": None,  # None / "correct" / "wrong"
+            "feedback": None,  # None / "correct" / "wrong" / "timeout"
             "feedback_timer": 0,
+            "time_left": TIME_LIMIT_FRAMES,
             "started": False,
             "game_over": False,
         }
@@ -127,6 +129,7 @@ def main():
         state["question"] = build_question(formula)
         state["buttons"] = make_choice_buttons(state["question"]["choices"])
         state["feedback"] = None
+        state["time_left"] = TIME_LIMIT_FRAMES
 
     def choose(label):
         if state["feedback"] is not None:
@@ -143,6 +146,16 @@ def main():
                 if btn.label == label:
                     btn.state = "wrong"
             state["feedback"] = "wrong"
+        state["feedback_timer"] = FEEDBACK_FRAMES
+
+    def timeout():
+        if state["feedback"] is not None:
+            return
+        correct = state["question"]["correct"]
+        for btn in state["buttons"]:
+            if btn.label == correct:
+                btn.state = "correct"
+        state["feedback"] = "timeout"
         state["feedback_timer"] = FEEDBACK_FRAMES
 
     running = True
@@ -176,10 +189,15 @@ def main():
                     if idx < len(state["buttons"]):
                         choose(state["buttons"][idx].label)
 
-        if state["started"] and not state["game_over"] and state["feedback"] is not None:
-            state["feedback_timer"] -= 1
-            if state["feedback_timer"] <= 0:
-                next_question()
+        if state["started"] and not state["game_over"]:
+            if state["feedback"] is None:
+                state["time_left"] -= 1
+                if state["time_left"] <= 0:
+                    timeout()
+            else:
+                state["feedback_timer"] -= 1
+                if state["feedback_timer"] <= 0:
+                    next_question()
 
         # ---------- 그리기 ----------
         screen.fill(BG_COLOR)
@@ -198,6 +216,17 @@ def main():
             formula_label = font_big.render(format_formula(state["question"]["formula"]), True, TEXT_COLOR)
             screen.blit(formula_label, (WIDTH / 2 - formula_label.get_width() / 2, 190))
 
+            frac = max(state["time_left"], 0) / TIME_LIMIT_FRAMES
+            bar_w, bar_h = 400, 8
+            bar_x, bar_y = WIDTH / 2 - bar_w / 2, 350
+            timer_color = NEUTRAL_GREEN if frac > 0.4 else (230, 180, 60) if frac > 0.2 else WRONG_RED
+            pygame.draw.rect(screen, PANEL_COLOR, (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+            pygame.draw.rect(screen, timer_color, (bar_x, bar_y, bar_w * frac, bar_h), border_radius=4)
+            seconds_left = (max(state["time_left"], 0) + FPS - 1) // FPS
+            if state["feedback"] is None:
+                time_label = font_small.render(f"{seconds_left}s", True, DIM_TEXT_COLOR)
+                screen.blit(time_label, (WIDTH / 2 - time_label.get_width() / 2, bar_y + 14))
+
             for btn in state["buttons"]:
                 btn.draw(screen, font_btn)
 
@@ -206,7 +235,7 @@ def main():
                          "분자 모양 퀴즈",
                          ["분자식을 보고 VSEPR 모형에 따른 분자 모양을 골라보세요.",
                           "직선형 / 평면삼각형 / 정사면체형 / 삼각뿔형 / 굽은형",
-                          "버튼 클릭 또는 숫자키 1~4로 선택합니다."])
+                          "버튼 클릭 또는 숫자키 1~4로 선택합니다. 문제당 제한시간은 5초입니다."])
             start_btn.draw(screen, font_small)
         elif state["game_over"]:
             overlay_text(screen, font_big, font_small,

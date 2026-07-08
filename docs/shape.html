@@ -84,6 +84,9 @@
   }
   .molecule-card .tag { font-size: 13px; letter-spacing: 0.06em; color: var(--ink-dim); }
   .molecule-card .formula { font-size: 52px; font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; }
+  .timer-track { height: 6px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin-top: 10px; }
+  .timer-fill { height: 100%; width: 100%; background: var(--neutral); transition: background 0.2s ease; }
+  .timer-label { display: block; font-size: 12px; color: var(--ink-dim); margin-top: 4px; }
 
   .choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .choice-card {
@@ -162,6 +165,8 @@
     <div class="molecule-card" id="moleculeCard">
       <span class="tag">이 분자의 모양은?</span>
       <span class="formula mono" id="formulaText">CO₂</span>
+      <div class="timer-track"><div class="timer-fill" id="timerFill"></div></div>
+      <span class="timer-label mono" id="timerLabel">5s</span>
     </div>
 
     <div class="choice-grid" id="choiceGrid"></div>
@@ -171,6 +176,7 @@
       <p>
         제시된 분자식을 보고 VSEPR 모형에 따른 분자 모양을 골라보세요.
         직선형 · 평면삼각형 · 정사면체형 · 삼각뿔형 · 굽은형, 30개 분자가 매번 새로운 순서로 출제됩니다.
+        문제당 제한시간은 5초이며, 시간 안에 고르지 못하면 오답으로 처리됩니다.
       </p>
       <p><span class="kbd">카드 클릭</span> 또는 <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> 키로 선택</p>
       <button class="go-btn" id="startBtn">시작하기</button>
@@ -231,11 +237,15 @@
     return { formula, correct, choices };
   }
 
+  const TIME_LIMIT_MS = 5000;
+
   const scoreVal = document.getElementById("scoreVal");
   const remainVal = document.getElementById("remainVal");
   const progressFill = document.getElementById("progressFill");
   const moleculeCard = document.getElementById("moleculeCard");
   const formulaText = document.getElementById("formulaText");
+  const timerFill = document.getElementById("timerFill");
+  const timerLabel = document.getElementById("timerLabel");
   const choiceGrid = document.getElementById("choiceGrid");
   const startOverlay = document.getElementById("startOverlay");
   const overOverlay = document.getElementById("overOverlay");
@@ -287,15 +297,41 @@
     state.locked = false;
   }
 
+  let countdownRAF = null;
+  let questionStartTime = 0;
+
+  function cancelCountdown() {
+    if (countdownRAF !== null) cancelAnimationFrame(countdownRAF);
+    countdownRAF = null;
+  }
+  function startCountdown() {
+    cancelCountdown();
+    questionStartTime = performance.now();
+    countdownRAF = requestAnimationFrame(tickCountdown);
+  }
+  function tickCountdown(now) {
+    const remaining = Math.max(0, TIME_LIMIT_MS - (now - questionStartTime));
+    const frac = remaining / TIME_LIMIT_MS;
+    timerFill.style.width = `${frac * 100}%`;
+    timerFill.style.background = frac > 0.4 ? "var(--neutral)" : frac > 0.2 ? "#e0b43c" : "var(--danger)";
+    timerLabel.textContent = `${Math.ceil(remaining / 1000)}s`;
+    if (remaining <= 0) {
+      choose(null);
+      return;
+    }
+    countdownRAF = requestAnimationFrame(tickCountdown);
+  }
+
   function choose(label) {
     if (!state.running || state.locked) return;
     state.locked = true;
+    cancelCountdown();
     const correct = state.question.correct;
     const cards = [...choiceGrid.children];
     cards.forEach((c) => {
       c.classList.add("locked");
       if (c.dataset.label === correct) c.classList.add("correct");
-      else if (c.dataset.label === label && label !== correct) c.classList.add("wrong");
+      else if (label !== null && c.dataset.label === label && label !== correct) c.classList.add("wrong");
     });
     if (label === correct) state.score++;
     updateHud();
@@ -311,6 +347,7 @@
     state.question = buildQuestion(state.order[state.index]);
     renderQuestion(true);
     updateHud();
+    startCountdown();
   }
 
   function startGame() {
@@ -320,12 +357,14 @@
     overOverlay.classList.add("hidden");
     renderQuestion(false);
     updateHud();
+    startCountdown();
   }
   startBtn.addEventListener("click", startGame);
   retryBtn.addEventListener("click", startGame);
 
   function endGame() {
     state.running = false;
+    cancelCountdown();
     overDetail.textContent = `최종 점수: ${state.score} / ${state.order.length}`;
     updateHud();
     overOverlay.classList.remove("hidden");
