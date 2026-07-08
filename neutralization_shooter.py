@@ -140,6 +140,25 @@ class WrongFlash:
             surf.blit(text, (self.x - text.get_width() / 2, self.y - text.get_height() / 2))
 
 
+BASE_SPAWN_INTERVAL = 175
+BASE_MIN_SPEED = 0.55
+BASE_MAX_SPEED = 0.9
+BASE_MAX_ON_SCREEN = 2
+STREAK_PER_LEVEL = 4
+MAX_LEVEL = 8
+
+
+def recompute_difficulty(state):
+    """연속 정답(streak) 4회마다 난이도 1단계 상승. 오답/실점 시 streak가 0으로
+    리셋되어 기초 난이도로 되돌아간다."""
+    tier = min(MAX_LEVEL - 1, state["streak"] // STREAK_PER_LEVEL)
+    state["level"] = tier + 1
+    state["spawn_interval"] = max(70, BASE_SPAWN_INTERVAL - tier * 14)
+    state["min_speed"] = BASE_MIN_SPEED + tier * 0.12
+    state["max_speed"] = BASE_MAX_SPEED + tier * 0.18
+    state["max_on_screen"] = min(5, BASE_MAX_ON_SCREEN + tier // 2)
+
+
 def button_rects():
     margin = 14
     btn_w = (WIDTH - margin * (len(BASE_BUTTONS) + 1)) / len(BASE_BUTTONS)
@@ -166,21 +185,21 @@ def main():
     rects = button_rects()
 
     def reset_game():
-        return {
+        state = {
             "cannon_x": WIDTH / 2,
             "enemies": [],
             "bullets": [],
             "flashes": [],
             "score": 0,
             "lives": 5,
+            "streak": 0,
+            "level": 1,
             "spawn_timer": 0,
-            "spawn_interval": 175,
-            "min_speed": 0.55,
-            "max_speed": 0.9,
-            "max_on_screen": 2,
             "game_over": False,
             "started": False,
         }
+        recompute_difficulty(state)
+        return state
 
     state = reset_game()
 
@@ -240,8 +259,6 @@ def main():
                 x = random.randint(60, WIDTH - 60)
                 speed = random.uniform(state["min_speed"], state["max_speed"])
                 state["enemies"].append(Enemy(name, n, m10, v, x, speed))
-                state["spawn_interval"] = max(110, state["spawn_interval"] - 0.3)
-                state["max_speed"] = min(1.6, state["max_speed"] + 0.004)
 
             for b in state["bullets"]:
                 b.update()
@@ -259,16 +276,22 @@ def main():
                         if b.eq == e.eq:
                             e.state = "neutralizing"
                             state["score"] += e.eq
+                            state["streak"] += 1
+                            recompute_difficulty(state)
                         else:
                             state["lives"] -= 1
+                            state["streak"] = 0
+                            recompute_difficulty(state)
                             state["flashes"].append(WrongFlash(e.x, e.y - ENEMY_RADIUS - 40))
                         if b in state["bullets"]:
                             state["bullets"].remove(b)
                         break
 
             passed = [e for e in state["enemies"] if e.state == "falling" and e.y - ENEMY_RADIUS > HEIGHT]
-            for e in passed:
-                state["lives"] -= 1
+            if passed:
+                state["lives"] -= len(passed)
+                state["streak"] = 0
+                recompute_difficulty(state)
             state["enemies"] = [e for e in state["enemies"]
                                  if not (e.state == "falling" and e.y - ENEMY_RADIUS > HEIGHT)
                                  and e.state != "dead"]
@@ -312,6 +335,8 @@ def main():
 
         score_label = font_mid.render(f"Score: {state['score']}", True, TEXT_COLOR)
         screen.blit(score_label, (16, 4))
+        combo_label = font_mid.render(f"Combo: {state['streak']}  Lv.{state['level']}", True, NEUTRAL_COLOR)
+        screen.blit(combo_label, (WIDTH / 2 - combo_label.get_width() / 2, 4))
         lives_label = font_mid.render(f"Life: {'♥ ' * max(state['lives'], 0)}".rstrip(), True, (230, 90, 110))
         screen.blit(lives_label, (WIDTH - lives_label.get_width() - 16, 4))
 
@@ -320,12 +345,13 @@ def main():
                           "중화 반응 양적 관계 슈팅 게임",
                           ["산성 물질(nMV)을 정확히 같은 당량의 염기 탄환으로 맞춰 중화시키세요.",
                            "마우스/화살표: 대포 이동   1~4 또는 버튼 클릭: 염기 탄환 발사",
+                           "연속 정답 4회마다 레벨 상승, 오답/실점 시 난이도 초기화",
                            "",
                            "시작하려면 클릭하거나 Enter를 누르세요"])
         elif state["game_over"]:
             overlay_text(screen, font_big, font_small,
                          "GAME OVER",
-                         [f"최종 점수: {state['score']}",
+                         [f"최종 점수: {state['score']}   도달 레벨: {state['level']}",
                           "",
                           "다시 시작하려면 클릭하거나 Enter를 누르세요"])
 
