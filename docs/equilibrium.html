@@ -144,6 +144,19 @@
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
+  .home-row { display: flex; justify-content: center; }
+  .home-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 24px; border-radius: 999px; background: var(--panel);
+    border: 1px solid var(--line); color: var(--ink); font-weight: 700; font-size: 14px;
+    text-decoration: none; transition: border-color 0.15s ease, background 0.15s ease;
+    touch-action: manipulation;
+  }
+  .home-btn:hover { border-color: var(--accent); background: var(--panel-2); }
+  .home-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .highscore-line { color: var(--accent); font-weight: 700; font-size: 14px; }
+
   @media (max-width: 520px) {
     .brand h1 { font-size: 16px; }
     .reaction-card .equation { font-size: 22px; }
@@ -203,6 +216,7 @@
     <div class="overlay hidden" id="overOverlay">
       <h2>결과</h2>
       <p id="overDetail">최종 점수: 0 / 100</p>
+      <p class="highscore-line" id="highscoreLine"></p>
       <button class="go-btn" id="retryBtn">다시 도전하기</button>
     </div>
   </div>
@@ -213,15 +227,27 @@
     <span><i class="dot" style="background:var(--neutral)"></i>정답</span>
     <span><i class="dot" style="background:var(--danger)"></i>오답</span>
   </div>
-  <div class="legend">
-    <span><a href="index.html" style="color:var(--accent)">중화 반응 양적 관계 →</a></span>
-    <span><a href="mole.html" style="color:var(--accent)">1단원: 몰과 화학반응식의 양적 관계 →</a></span>
-    <span><a href="shape.html" style="color:var(--accent)">2단원: 분자 모양 퀴즈 →</a></span>
+  <div class="home-row">
+    <a class="home-btn" href="index.html">🏠 홈으로</a>
   </div>
 </div>
 
 <script>
 (() => {
+  const GAME_ID = "equilibrium";
+  const NICK_KEY = "chemArcadeNickname";
+  const HS_KEY = `chemArcadeHighscore_${GAME_ID}`;
+  function getNickname() { return localStorage.getItem(NICK_KEY) || "플레이어"; }
+  function updateHighscore(score) {
+    let record = null;
+    try { record = JSON.parse(localStorage.getItem(HS_KEY)); } catch (e) { record = null; }
+    if (!record || score > record.score) {
+      record = { name: getNickname(), score };
+      localStorage.setItem(HS_KEY, JSON.stringify(record));
+    }
+    return record;
+  }
+
   const SUB_DIGITS = { "0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉" };
 
   const QUESTIONS_PER_GAME = 10;
@@ -291,6 +317,7 @@
   const startOverlay = document.getElementById("startOverlay");
   const overOverlay = document.getElementById("overOverlay");
   const overDetail = document.getElementById("overDetail");
+  const highscoreLine = document.getElementById("highscoreLine");
   const startBtn = document.getElementById("startBtn");
   const retryBtn = document.getElementById("retryBtn");
 
@@ -427,6 +454,8 @@
   function endGame() {
     state.running = false;
     overDetail.textContent = `최종 점수: ${state.score} / ${MAX_SCORE}`;
+    const record = updateHighscore(state.score);
+    highscoreLine.textContent = `🏆 최고 기록: ${record.name} — ${record.score}점`;
     overOverlay.classList.remove("hidden");
   }
 

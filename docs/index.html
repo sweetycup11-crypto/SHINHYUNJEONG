@@ -1,4 +1,4 @@
-<title>중화 적정 슈팅 — Neutralization Titrator</title>
+<title>화학 아케이드 — 고1 화학 복습 게임 모음</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   :root {
@@ -11,8 +11,6 @@
     --ink: #eef2ea;
     --ink-dim: #9db1a2;
     --accent: #ff8a3d;
-    --accent-dim: #b8622a;
-    --acid: #e8d24a;
     --neutral: #4fd68c;
     --danger: #ff5470;
   }
@@ -26,8 +24,6 @@
     --ink: #16211a;
     --ink-dim: #506056;
     --accent: #d9631a;
-    --accent-dim: #b8622a;
-    --acid: #b99a10;
     --neutral: #1f9d63;
     --danger: #c8264a;
   }
@@ -42,681 +38,181 @@
       --ink: #16211a;
       --ink-dim: #506056;
       --accent: #d9631a;
-      --accent-dim: #b8622a;
-      --acid: #b99a10;
       --neutral: #1f9d63;
       --danger: #c8264a;
     }
   }
 
   * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--ink);
-    overflow-x: hidden;
-  }
-
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); overflow-x: hidden; }
   body {
     font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
-    display: flex;
-    justify-content: center;
-    padding: 28px 14px 40px;
-    background:
-      radial-gradient(ellipse at 50% -10%, var(--line-soft) 0%, transparent 60%),
-      var(--bg);
+    display: flex; justify-content: center; padding: 40px 14px 48px;
+    background: radial-gradient(ellipse at 50% -10%, var(--line-soft) 0%, transparent 60%), var(--bg);
     min-height: 100vh;
   }
+  .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 
-  .mono {
-    font-family: "JetBrains Mono", "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-variant-numeric: tabular-nums;
-  }
+  .rig { width: 100%; max-width: 780px; display: flex; flex-direction: column; gap: 28px; }
 
-  .rig {
-    width: 100%;
-    max-width: 820px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
+  .hero { text-align: center; display: flex; flex-direction: column; gap: 10px; }
+  .hero .eyebrow { font-size: 12px; letter-spacing: 0.16em; color: var(--ink-dim); font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .hero h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; }
+  .hero p { margin: 0; color: var(--ink-dim); font-size: 15px; line-height: 1.6; }
 
-  /* ---------- Header instrument strip ---------- */
-  .console {
-    display: flex;
-    align-items: stretch;
-    justify-content: space-between;
-    gap: 12px;
-    background: linear-gradient(180deg, var(--panel-2), var(--panel));
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 14px 18px;
+  .nick-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px; display: flex; flex-direction: column; gap: 10px;
   }
+  .nick-card label { font-size: 13px; font-weight: 700; color: var(--ink-dim); letter-spacing: 0.02em; }
+  .nick-row { display: flex; gap: 10px; }
+  .nick-row input {
+    flex: 1; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; font-size: 16px; color: var(--ink); font-family: inherit;
+  }
+  .nick-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .nick-status { font-size: 12.5px; color: var(--ink-dim); min-height: 1.2em; }
+  .nick-status.ok { color: var(--neutral); }
 
-  .brand {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
+  .game-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .game-card {
+    position: relative; display: flex; flex-direction: column; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; text-decoration: none; color: var(--ink);
+    transition: transform 0.15s ease, border-color 0.15s ease, opacity 0.2s ease;
   }
-  .brand .eyebrow {
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    color: var(--ink-dim);
-    font-family: "JetBrains Mono", ui-monospace, monospace;
+  .game-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .game-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .game-card.disabled { opacity: 0.45; pointer-events: none; }
+  .game-card .icon { font-size: 30px; line-height: 1; }
+  .game-card .unit-badge {
+    align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+    padding: 3px 10px; border-radius: 999px;
   }
-  .brand h1 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    text-wrap: balance;
-  }
-  .brand h1 .eq {
-    color: var(--accent);
-    font-family: "JetBrains Mono", ui-monospace, monospace;
-    font-weight: 600;
-  }
+  .game-card .title { font-size: 17px; font-weight: 800; text-wrap: balance; }
+  .game-card .desc { font-size: 12.5px; color: var(--ink-dim); line-height: 1.5; }
+  .game-card .champ { font-size: 11.5px; color: var(--ink-dim); margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line-soft); }
+  .game-card .champ b { color: var(--accent); }
 
-  .readouts {
-    display: flex;
-    gap: 22px;
-    align-items: center;
-  }
-  .readout {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    min-width: 64px;
-  }
-  .readout .label {
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    color: var(--ink-dim);
-  }
-  .readout .value {
-    font-size: 25px;
-    font-weight: 700;
-  }
-  .readout .value.life { color: var(--danger); }
-  .readout .value.score { color: var(--accent); }
-  .readout .value.combo { color: var(--neutral); }
+  .footnote { text-align: center; font-size: 12px; color: var(--ink-dim); }
 
-  /* ---------- Stage (canvas chamber) ---------- */
-  .chamber {
-    position: relative;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    overflow: hidden;
-    background: var(--bg-2);
-    box-shadow: inset 0 0 0 1px var(--line-soft);
+  @media (max-width: 560px) {
+    .hero h1 { font-size: 26px; }
+    .game-grid { grid-template-columns: 1fr; }
   }
-  canvas {
-    display: block;
-    width: 100%;
-    height: auto;
-    cursor: crosshair;
-    touch-action: none;
-  }
-
-  .overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 14px;
-    text-align: center;
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    padding: 20px;
-  }
-  .overlay.hidden { display: none; }
-  .overlay h2 {
-    margin: 0;
-    font-size: 30px;
-    text-wrap: balance;
-    letter-spacing: -0.01em;
-  }
-  .overlay p {
-    margin: 0;
-    color: var(--ink-dim);
-    max-width: 46ch;
-    line-height: 1.6;
-    font-size: 14px;
-  }
-  .overlay .kbd {
-    font-family: "JetBrains Mono", ui-monospace, monospace;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-size: 12.5px;
-  }
-  .go-btn {
-    margin-top: 6px;
-    background: var(--accent);
-    color: #1a1006;
-    border: none;
-    font-weight: 700;
-    font-size: 15px;
-    padding: 10px 26px;
-    border-radius: 999px;
-    cursor: pointer;
-    letter-spacing: 0.01em;
-    touch-action: manipulation;
-  }
-  .go-btn:hover { filter: brightness(1.08); }
-  .go-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-
-  /* ---------- Reagent rail ---------- */
-  .rail {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-  }
-  .reagent {
-    position: relative;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-top: 3px solid var(--cap, var(--accent));
-    border-radius: 8px;
-    padding: 10px 8px 9px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    cursor: pointer;
-    color: var(--ink);
-    font-family: inherit;
-    transition: transform 0.06s ease, background 0.15s ease;
-    touch-action: manipulation;
-  }
-  .reagent:hover { background: var(--panel-2); }
-  .reagent:active { transform: translateY(1px); }
-  .reagent:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .reagent .key {
-    position: absolute;
-    top: 6px;
-    left: 8px;
-    font-size: 10px;
-    color: var(--ink-dim);
-    font-family: "JetBrains Mono", ui-monospace, monospace;
-  }
-  .reagent .name {
-    font-weight: 700;
-    font-size: 18px;
-    margin-top: 4px;
-  }
-  .reagent .spec {
-    font-size: 14px;
-    color: var(--ink-dim);
-    font-family: "JetBrains Mono", ui-monospace, monospace;
-  }
-  .reagent.flash { background: var(--cap, var(--accent)); }
-
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    justify-content: center;
-    font-size: 12px;
-    color: var(--ink-dim);
-    padding: 2px 4px 0;
-  }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-
-  @media (max-width: 520px) {
-    .brand h1 { font-size: 16px; }
-    .readouts { gap: 10px; }
-    .readout { min-width: auto; }
-    .readout .value { font-size: 16px; }
-    .reagent .name { font-size: 15px; }
-    .reagent .spec { font-size: 12px; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; animation: none !important; }
-  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
 <div class="rig">
-  <header class="console">
-    <div class="brand">
-      <span class="eyebrow">TITRATION ARCADE</span>
-      <h1>중화 적정 슈팅 <span class="eq">n·M·V</span></h1>
-    </div>
-    <div class="readouts">
-      <div class="readout">
-        <span class="label">SCORE</span>
-        <span class="value score mono" id="scoreVal">0</span>
-      </div>
-      <div class="readout">
-        <span class="label">COMBO · Lv</span>
-        <span class="value combo mono" id="comboVal">0 · 1</span>
-      </div>
-      <div class="readout">
-        <span class="label">LIFE</span>
-        <span class="value life" id="lifeVal">♥♥♥♥♥</span>
-      </div>
-    </div>
-  </header>
-
-  <div class="chamber">
-    <canvas id="stage" width="760" height="620"></canvas>
-
-    <div class="overlay" id="startOverlay">
-      <h2>중화 반응 양적 관계 슈팅</h2>
-      <p>
-        위에서 내려오는 산성 물질의 당량(n·M·V)을 정확히 계산해,
-        아래 4개의 염기 탄환 중 <strong>같은 당량</strong>을 가진 것으로 명중시키세요.
-        정확히 맞으면 노란색(산성)이 초록색(중성)으로 바뀌며 중화됩니다.
-        틀리게 맞히거나 놓치면 생명이 줄고 난이도가 초기화됩니다.
-        연속 정답 4회마다 레벨이 올라 낙하 속도·등장 빈도가 빨라집니다.
-      </p>
-      <p>
-        <span class="kbd">마우스 이동</span> / <span class="kbd">← →</span> / <span class="kbd">화면 터치·드래그</span> 대포 이동 ·
-        <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> 또는 버튼 클릭·탭으로 발사
-      </p>
-      <button class="go-btn" id="startBtn">적정 시작</button>
-    </div>
-
-    <div class="overlay hidden" id="overOverlay">
-      <h2 id="overTitle">GAME OVER</h2>
-      <p id="overDetail">최종 점수: 0</p>
-      <button class="go-btn" id="retryBtn">다시 적정하기</button>
-    </div>
+  <div class="hero">
+    <span class="eyebrow">2022 개정 교육과정 · 고등학교 화학</span>
+    <h1>화학 아케이드</h1>
+    <p>단원별 개념을 게임으로 복습해보세요. 별명을 입력하고 원하는 게임을 골라 시작하면 됩니다.</p>
   </div>
 
-  <div class="rail" id="rail"></div>
+  <div class="nick-card">
+    <label for="nickInput">플레이어 별명</label>
+    <div class="nick-row">
+      <input type="text" id="nickInput" maxlength="12" placeholder="예: 화학마스터" autocomplete="off" />
+    </div>
+    <span class="nick-status" id="nickStatus">별명을 입력하면 게임을 시작할 수 있어요.</span>
+  </div>
 
-  <div class="legend">
-    <span><i class="dot" style="background:var(--acid)"></i>산성 (미중화)</span>
-    <span><i class="dot" style="background:var(--neutral)"></i>중성 (명중)</span>
-    <span><i class="dot" style="background:var(--danger)"></i>오답 / 실점</span>
-  </div>
-  <div class="legend">
-    <span><a href="mole.html" style="color:var(--accent)">1단원: 몰과 화학반응식의 양적 관계 →</a></span>
-    <span><a href="shape.html" style="color:var(--accent)">2단원: 분자 모양 퀴즈 →</a></span>
-    <span><a href="equilibrium.html" style="color:var(--accent)">3단원: 화학평형 이동 시뮬레이터 →</a></span>
-  </div>
+  <div class="game-grid" id="gameGrid"></div>
+
+  <p class="footnote">각 게임 결과 화면과 이 목록에서 단원별 최고 기록을 확인할 수 있습니다.</p>
 </div>
 
 <script>
 (() => {
-  const canvas = document.getElementById("stage");
-  const ctx = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
-  const CANNON_Y = H - 78;
-  const ENEMY_R = 32;
-  const BULLET_R = 6;
-  const BULLET_SPEED = 8.5;
+  const NICK_KEY = "chemArcadeNickname";
 
-  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-  const ACIDS = [
-    { name: "HCl", n: 1 },
-    { name: "H2SO4", n: 2 },
-    { name: "H3PO4", n: 3 },
+  const GAMES = [
+    {
+      id: "mole",
+      unit: "1단원",
+      title: "몰과 화학반응식의 양적 관계",
+      desc: "몰비·몰-질량 변환·한계반응물 판단을 다루는 슈팅 게임",
+      icon: "⚖️",
+      href: "mole.html",
+    },
+    {
+      id: "shape",
+      unit: "2단원",
+      title: "분자 모양 퀴즈",
+      desc: "VSEPR 모형에 따른 분자 모양을 맞히는 카드 클릭 퀴즈",
+      icon: "🔷",
+      href: "shape.html",
+    },
+    {
+      id: "equilibrium",
+      unit: "3단원",
+      title: "화학평형 이동 시뮬레이터",
+      desc: "르샤틀리에 원리로 평형 이동 방향을 예측하는 시뮬레이터",
+      icon: "⚗️",
+      href: "equilibrium.html",
+    },
+    {
+      id: "titration",
+      unit: "4단원",
+      title: "중화 적정 슈팅",
+      desc: "산-염기 중화반응의 당량(n·M·V)을 계산해 명중시키는 슈팅 게임",
+      icon: "🧪",
+      href: "titration.html",
+    },
   ];
 
-  const BASES = [
-    { name: "NaOH", n: 1, m10: 1, v: 10, cap: "#4f9bff" },
-    { name: "KOH", n: 1, m10: 2, v: 10, cap: "#9a78eb" },
-    { name: "Ca(OH)2", n: 2, m10: 1, v: 15, cap: "#eb9650" },
-    { name: "Ba(OH)2", n: 2, m10: 2, v: 10, cap: "#3fd2c6" },
-  ].map(b => ({ ...b, eq: b.n * b.m10 * b.v }));
+  const nickInput = document.getElementById("nickInput");
+  const nickStatus = document.getElementById("nickStatus");
+  const gameGrid = document.getElementById("gameGrid");
 
-  const EQ_SET = BASES.map(b => b.eq);
-  const V_CHOICES = [5, 10, 15, 20, 25, 30, 40, 50];
+  function getHighscore(id) {
+    try { return JSON.parse(localStorage.getItem(`chemArcadeHighscore_${id}`)); } catch (e) { return null; }
+  }
 
-  function fmtConc(m10) { return (m10 / 10).toFixed(1) + "M"; }
+  function renderCards() {
+    const hasNick = nickInput.value.trim().length > 0;
+    gameGrid.innerHTML = "";
+    GAMES.forEach((g) => {
+      const record = getHighscore(g.id);
+      const card = document.createElement("a");
+      card.className = "game-card" + (hasNick ? "" : " disabled");
+      card.href = g.href;
+      card.innerHTML = `
+        <span class="icon">${g.icon}</span>
+        <span class="unit-badge">${g.unit}</span>
+        <span class="title">${g.title}</span>
+        <span class="desc">${g.desc}</span>
+        <span class="champ">${record ? `🏆 최고 기록 <b>${escapeHtml(record.name)}</b> · ${record.score}점` : "아직 기록 없음"}</span>
+      `;
+      gameGrid.appendChild(card);
+    });
+  }
 
-  function genAcid() {
-    const target = EQ_SET[(Math.random() * EQ_SET.length) | 0];
-    const candidates = [];
-    for (const acid of ACIDS) {
-      for (const v of V_CHOICES) {
-        if (target % (acid.n * v) === 0) {
-          const m10 = target / (acid.n * v);
-          if (m10 >= 1 && m10 <= 9) candidates.push({ name: acid.name, n: acid.n, m10, v });
-        }
-      }
+  function escapeHtml(s) {
+    const div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function saveNick() {
+    const v = nickInput.value.trim();
+    if (v) {
+      localStorage.setItem(NICK_KEY, v);
+      nickStatus.textContent = `"${v}" 님, 게임을 선택해 시작하세요!`;
+      nickStatus.classList.add("ok");
+    } else {
+      localStorage.removeItem(NICK_KEY);
+      nickStatus.textContent = "별명을 입력하면 게임을 시작할 수 있어요.";
+      nickStatus.classList.remove("ok");
     }
-    if (!candidates.length) {
-      const b = BASES[0];
-      return { name: "HCl", n: 1, m10: b.m10, v: b.v };
-    }
-    return candidates[(Math.random() * candidates.length) | 0];
+    renderCards();
   }
 
-  // 삼각플라스크(에를렌마이어 플라스크) 외곽선을 (x,y)를 중심으로 그리고,
-  // 목(neck) 위쪽 끝 y좌표를 반환한다 (라벨 배치용).
-  function flaskGeometry(x, y, r) {
-    const neckW = r * 0.5, neckH = r * 0.55;
-    const bodyW = r * 1.7, bodyH = r * 1.05;
-    const totalH = neckH + bodyH;
-    const top = y - totalH / 2;
-    const neckBottom = top + neckH;
-    const bottom = top + totalH;
-    return { top, neckBottom, bottom, neckW, bodyW };
-  }
-
-  function drawFlask(x, y, r, fillColor) {
-    const g = flaskGeometry(x, y, r);
-    ctx.beginPath();
-    ctx.moveTo(x - g.neckW / 2, g.top);
-    ctx.lineTo(x + g.neckW / 2, g.top);
-    ctx.lineTo(x + g.neckW / 2, g.neckBottom);
-    ctx.lineTo(x + g.bodyW / 2, g.bottom);
-    ctx.lineTo(x - g.bodyW / 2, g.bottom);
-    ctx.lineTo(x - g.neckW / 2, g.neckBottom);
-    ctx.closePath();
-    ctx.fillStyle = fillColor;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(0,0,0,0.35)";
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.fillRect(x - g.neckW / 2 - 1, g.top - 5, g.neckW + 2, 6);
-
-    ctx.beginPath();
-    ctx.moveTo(x - g.bodyW * 0.26, g.neckBottom + (g.bottom - g.neckBottom) * 0.18);
-    ctx.lineTo(x - g.bodyW * 0.1, g.bottom - (g.bottom - g.neckBottom) * 0.1);
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "rgba(255,255,255,0.22)";
-    ctx.stroke();
-
-    return g.top;
-  }
-
-  class Enemy {
-    constructor(spec, x, speed) {
-      Object.assign(this, spec);
-      this.eq = this.n * this.m10 * this.v;
-      this.x = x;
-      this.y = -ENEMY_R;
-      this.speed = speed;
-      this.state = "falling";
-      this.animT = 0;
-    }
-    get label() { return `${fmtConc(this.m10)} ${this.name} ${this.v}mL`; }
-    update() {
-      if (this.state === "falling") this.y += this.speed;
-      else if (this.state === "neutralizing") {
-        this.animT++;
-        if (this.animT > 18) this.state = "dead";
-      }
-    }
-    draw() {
-      const acidColor = cssVar("--acid"), neutralColor = cssVar("--neutral");
-      let color, radius;
-      if (this.state === "falling") { color = acidColor; radius = ENEMY_R; }
-      else {
-        const t = Math.min(this.animT / 18, 1);
-        color = lerpColor(acidColor, neutralColor, t);
-        radius = ENEMY_R * (1 - 0.4 * t);
-      }
-      const top = drawFlask(this.x, this.y, radius, color);
-      ctx.font = "700 19px 'JetBrains Mono', ui-monospace, monospace";
-      ctx.fillStyle = cssVar("--ink");
-      ctx.textAlign = "center";
-      ctx.fillText(this.label, this.x, top - 14);
-    }
-  }
-
-  function hexToRgb(hex) {
-    hex = hex.replace("#", "");
-    if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
-    const num = parseInt(hex, 16);
-    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-  }
-  function lerpColor(a, b, t) {
-    const [ar, ag, ab] = hexToRgb(a), [br, bg, bb] = hexToRgb(b);
-    const r = Math.round(ar + (br - ar) * t);
-    const g = Math.round(ag + (bg - ag) * t);
-    const bl = Math.round(ab + (bb - ab) * t);
-    return `rgb(${r},${g},${bl})`;
-  }
-
-  class Bullet {
-    constructor(x, base) {
-      this.x = x;
-      this.y = CANNON_Y - 26;
-      this.base = base;
-      this.eq = base.eq;
-    }
-    update() { this.y -= BULLET_SPEED; }
-    draw() {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, BULLET_R, 0, Math.PI * 2);
-      ctx.fillStyle = this.base.cap;
-      ctx.fill();
-    }
-  }
-
-  class Flash {
-    constructor(x, y) { this.x = x; this.y = y; this.t = 0; }
-    update() { this.t++; }
-    draw() {
-      if (this.t >= 16) return;
-      ctx.font = "700 24px 'JetBrains Mono', ui-monospace, monospace";
-      ctx.fillStyle = cssVar("--danger");
-      ctx.textAlign = "center";
-      ctx.globalAlpha = 1 - this.t / 16;
-      ctx.fillText("✕", this.x, this.y);
-      ctx.globalAlpha = 1;
-    }
-  }
-
-  // 연속 정답(streak) 4회마다 난이도 1단계 상승, 오답/실점 시 기초 난이도로 복귀
-  const BASE_SPAWN = 175, BASE_MIN_SPEED = 0.55, BASE_MAX_SPEED = 0.9, BASE_MAX_ON_SCREEN = 2;
-  const STREAK_PER_LEVEL = 4, MAX_LEVEL = 8;
-
-  function recomputeDifficulty(s) {
-    const tier = Math.min(MAX_LEVEL - 1, Math.floor(s.streak / STREAK_PER_LEVEL));
-    s.level = tier + 1;
-    s.spawnInterval = Math.max(70, BASE_SPAWN - tier * 14);
-    s.minSpeed = BASE_MIN_SPEED + tier * 0.12;
-    s.maxSpeed = BASE_MAX_SPEED + tier * 0.18;
-    s.maxOnScreen = Math.min(5, BASE_MAX_ON_SCREEN + Math.floor(tier / 2));
-  }
-
-  const scoreVal = document.getElementById("scoreVal");
-  const comboVal = document.getElementById("comboVal");
-  const lifeVal = document.getElementById("lifeVal");
-  const startOverlay = document.getElementById("startOverlay");
-  const overOverlay = document.getElementById("overOverlay");
-  const overTitle = document.getElementById("overTitle");
-  const overDetail = document.getElementById("overDetail");
-  const startBtn = document.getElementById("startBtn");
-  const retryBtn = document.getElementById("retryBtn");
-  const rail = document.getElementById("rail");
-
-  BASES.forEach((b, i) => {
-    const btn = document.createElement("button");
-    btn.className = "reagent";
-    btn.style.setProperty("--cap", b.cap);
-    btn.innerHTML = `<span class="key">${i + 1}</span><span class="name">${b.name}</span><span class="spec">${fmtConc(b.m10)} · ${b.v}mL</span>`;
-    btn.addEventListener("click", () => fire(i));
-    rail.appendChild(btn);
-  });
-  const railBtns = [...rail.children];
-
-  function flashButton(i) {
-    railBtns[i].classList.add("flash");
-    setTimeout(() => railBtns[i].classList.remove("flash"), 110);
-  }
-
-  let state = null;
-  function freshState() {
-    const s = {
-      cannonX: W / 2,
-      enemies: [],
-      bullets: [],
-      flashes: [],
-      score: 0,
-      lives: 5,
-      streak: 0,
-      level: 1,
-      spawnTimer: 0,
-      running: false,
-    };
-    recomputeDifficulty(s);
-    return s;
-  }
-  state = freshState();
-
-  function updateHud() {
-    scoreVal.textContent = state.score;
-    comboVal.textContent = `${state.streak} · ${state.level}`;
-    lifeVal.textContent = "♥".repeat(Math.max(state.lives, 0)) || "—";
-  }
-
-  function fire(idx) {
-    if (!state.running) return;
-    flashButton(idx);
-    state.bullets.push(new Bullet(state.cannonX, BASES[idx]));
-  }
-
-  canvas.addEventListener("mousemove", (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const scale = W / rect.width;
-    state.cannonX = Math.max(24, Math.min(W - 24, (e.clientX - rect.left) * scale));
-  });
-
-  function aimFromTouch(e) {
-    const touch = e.touches[0] || e.changedTouches[0];
-    if (!touch) return;
-    const rect = canvas.getBoundingClientRect();
-    const scale = W / rect.width;
-    state.cannonX = Math.max(24, Math.min(W - 24, (touch.clientX - rect.left) * scale));
-  }
-  canvas.addEventListener("touchstart", (e) => { e.preventDefault(); aimFromTouch(e); }, { passive: false });
-  canvas.addEventListener("touchmove", (e) => { e.preventDefault(); aimFromTouch(e); }, { passive: false });
-
-  const keys = new Set();
-  window.addEventListener("keydown", (e) => {
-    keys.add(e.key);
-    if (!state.running) return;
-    if (e.key === "1") fire(0);
-    else if (e.key === "2") fire(1);
-    else if (e.key === "3") fire(2);
-    else if (e.key === "4") fire(3);
-  });
-  window.addEventListener("keyup", (e) => keys.delete(e.key));
-
-  function startGame() {
-    state = freshState();
-    state.running = true;
-    startOverlay.classList.add("hidden");
-    overOverlay.classList.add("hidden");
-    updateHud();
-  }
-  startBtn.addEventListener("click", startGame);
-  retryBtn.addEventListener("click", startGame);
-
-  function endGame() {
-    state.running = false;
-    overTitle.textContent = "GAME OVER";
-    overDetail.textContent = `최종 점수: ${state.score}  ·  도달 레벨: ${state.level}`;
-    overOverlay.classList.remove("hidden");
-  }
-
-  function drawGrid() {
-    ctx.strokeStyle = cssVar("--line-soft");
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= W; x += 40) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    }
-    for (let y = 0; y <= H; y += 40) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    }
-  }
-
-  function drawCannon() {
-    const x = state.cannonX;
-    ctx.beginPath();
-    ctx.moveTo(x - 16, CANNON_Y + 18);
-    ctx.lineTo(x + 16, CANNON_Y + 18);
-    ctx.lineTo(x, CANNON_Y - 18);
-    ctx.closePath();
-    ctx.fillStyle = cssVar("--accent");
-    ctx.fill();
-  }
-
-  function tick() {
-    if (state.running) {
-      if (keys.has("ArrowLeft") || keys.has("a")) state.cannonX = Math.max(24, state.cannonX - 6.5);
-      if (keys.has("ArrowRight") || keys.has("d")) state.cannonX = Math.min(W - 24, state.cannonX + 6.5);
-
-      state.spawnTimer++;
-      if (state.spawnTimer >= state.spawnInterval && state.enemies.length < state.maxOnScreen) {
-        state.spawnTimer = 0;
-        const spec = genAcid();
-        const x = 60 + Math.random() * (W - 120);
-        const speed = state.minSpeed + Math.random() * (state.maxSpeed - state.minSpeed);
-        state.enemies.push(new Enemy(spec, x, speed));
-      }
-
-      state.bullets.forEach(b => b.update());
-      state.bullets = state.bullets.filter(b => b.y > -20);
-      state.enemies.forEach(e => e.update());
-
-      for (const b of state.bullets.slice()) {
-        for (const e of state.enemies) {
-          if (e.state !== "falling") continue;
-          const dist = Math.hypot(b.x - e.x, b.y - e.y);
-          if (dist <= ENEMY_R) {
-            if (b.eq === e.eq) {
-              e.state = "neutralizing";
-              state.score += e.eq;
-              state.streak++;
-              recomputeDifficulty(state);
-            } else {
-              state.lives--;
-              state.streak = 0;
-              recomputeDifficulty(state);
-              state.flashes.push(new Flash(e.x, e.y - ENEMY_R - 26));
-            }
-            const idx = state.bullets.indexOf(b);
-            if (idx >= 0) state.bullets.splice(idx, 1);
-            break;
-          }
-        }
-      }
-
-      const passed = state.enemies.filter(e => e.state === "falling" && e.y - ENEMY_R > H);
-      if (passed.length) {
-        state.lives -= passed.length;
-        state.streak = 0;
-        recomputeDifficulty(state);
-      }
-      state.enemies = state.enemies.filter(e => !(e.state === "falling" && e.y - ENEMY_R > H) && e.state !== "dead");
-
-      state.flashes.forEach(f => f.update());
-      state.flashes = state.flashes.filter(f => f.t < 16);
-
-      updateHud();
-      if (state.lives <= 0) { state.lives = 0; updateHud(); endGame(); }
-    }
-
-    ctx.fillStyle = cssVar("--bg-2");
-    ctx.fillRect(0, 0, W, H);
-    drawGrid();
-    state.enemies.forEach(e => e.draw());
-    state.bullets.forEach(b => b.draw());
-    state.flashes.forEach(f => f.draw());
-    if (state.running) drawCannon();
-
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
+  nickInput.value = localStorage.getItem(NICK_KEY) || "";
+  nickInput.addEventListener("input", saveNick);
+  saveNick();
 })();
 </script>
