@@ -72,6 +72,28 @@ def gen_acid():
     return random.choice(candidates)
 
 
+def flask_points(x, y, r):
+    """(x, y)를 중심으로 하는 삼각플라스크(에를렌마이어 플라스크) 외곽선 좌표와
+    목(neck) 위쪽 끝 y좌표, 목 너비를 반환한다."""
+    neck_w = r * 0.5
+    neck_h = r * 0.55
+    body_w = r * 1.7
+    body_h = r * 1.05
+    total_h = neck_h + body_h
+    top = y - total_h / 2
+    neck_bottom = top + neck_h
+    bottom = top + total_h
+    points = [
+        (x - neck_w / 2, top),
+        (x + neck_w / 2, top),
+        (x + neck_w / 2, neck_bottom),
+        (x + body_w / 2, bottom),
+        (x - body_w / 2, bottom),
+        (x - neck_w / 2, neck_bottom),
+    ]
+    return points, top, neck_w
+
+
 class Enemy:
     def __init__(self, name, n, m10, v, x, speed):
         self.name = name
@@ -104,11 +126,13 @@ class Enemy:
         else:
             t = min(self.anim_timer / 18, 1.0)
             color = tuple(int(ACID_COLOR[i] + (NEUTRAL_COLOR[i] - ACID_COLOR[i]) * t) for i in range(3))
-            radius = int(ENEMY_RADIUS * (1.0 - 0.4 * t))
-        pygame.draw.circle(surf, color, (int(self.x), int(self.y)), radius)
-        pygame.draw.circle(surf, (0, 0, 0), (int(self.x), int(self.y)), radius, 2)
+            radius = ENEMY_RADIUS * (1.0 - 0.4 * t)
+        points, top, neck_w = flask_points(self.x, self.y, radius)
+        pygame.draw.polygon(surf, color, points)
+        pygame.draw.polygon(surf, (0, 0, 0), points, 2)
+        pygame.draw.rect(surf, (235, 238, 245), (self.x - neck_w / 2 - 1, top - 5, neck_w + 2, 6))
         label = small_font.render(self.label, True, TEXT_COLOR)
-        surf.blit(label, (self.x - label.get_width() / 2, self.y - radius - 20))
+        surf.blit(label, (self.x - label.get_width() / 2, top - 24))
 
 
 class Bullet:
