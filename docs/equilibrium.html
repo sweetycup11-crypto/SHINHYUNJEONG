@@ -1,0 +1,451 @@
+<title>화학평형 이동 시뮬레이터 — Le Chatelier</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0d1611;
+    --bg-2: #0a100c;
+    --panel: #16211a;
+    --panel-2: #1d2b22;
+    --line: #2c3e32;
+    --line-soft: #223129;
+    --ink: #eef2ea;
+    --ink-dim: #9db1a2;
+    --accent: #ff8a3d;
+    --neutral: #4fd68c;
+    --danger: #ff5470;
+    --reactant: #5a82c8;
+    --product: #ff9646;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1ea;
+    --bg-2: #e3e8dd;
+    --panel: #ffffff;
+    --panel-2: #f4f6f0;
+    --line: #c9d2c1;
+    --line-soft: #d9e0d1;
+    --ink: #16211a;
+    --ink-dim: #506056;
+    --accent: #d9631a;
+    --neutral: #1f9d63;
+    --danger: #c8264a;
+    --reactant: #3f66a8;
+    --product: #c9691f;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #eef1ea;
+      --bg-2: #e3e8dd;
+      --panel: #ffffff;
+      --panel-2: #f4f6f0;
+      --line: #c9d2c1;
+      --line-soft: #d9e0d1;
+      --ink: #16211a;
+      --ink-dim: #506056;
+      --accent: #d9631a;
+      --neutral: #1f9d63;
+      --danger: #c8264a;
+      --reactant: #3f66a8;
+      --product: #c9691f;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); overflow-x: hidden; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    display: flex; justify-content: center; padding: 28px 14px 40px;
+    background: radial-gradient(ellipse at 50% -10%, var(--line-soft) 0%, transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  .mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .rig { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
+
+  .console {
+    display: flex; align-items: stretch; justify-content: space-between; gap: 12px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px;
+  }
+  .brand { display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+  .brand .eyebrow { font-size: 11px; letter-spacing: 0.14em; color: var(--ink-dim); font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .brand h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+  .readouts { display: flex; gap: 22px; align-items: center; }
+  .readout { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .readout .label { font-size: 10px; letter-spacing: 0.14em; color: var(--ink-dim); }
+  .readout .value { font-size: 24px; font-weight: 700; color: var(--accent); }
+
+  .stage { position: relative; display: flex; flex-direction: column; gap: 16px; }
+
+  .reaction-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px; text-align: center; display: flex; flex-direction: column; gap: 8px;
+  }
+  .reaction-card .tag { font-size: 13px; color: var(--ink-dim); }
+  .reaction-card .equation { font-size: 30px; font-weight: 700; letter-spacing: 0.01em; text-wrap: balance; }
+  .reaction-card .stimulus { font-size: 18px; font-weight: 700; color: var(--accent); }
+
+  .chip-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    padding: 7px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    background: var(--panel-2); color: var(--ink-dim); border: 1px solid var(--line);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .chip.active { background: var(--accent); color: #1a1006; border-color: var(--accent); }
+
+  .particle-stage { display: flex; gap: 16px; }
+  .particle-col {
+    flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 150px;
+  }
+  .col-label { font-size: 13px; color: var(--ink-dim); }
+  .particle-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+  .particle {
+    width: 22px; height: 22px; border-radius: 50%;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    transform: scale(1); opacity: 1;
+  }
+  .particle.reactant { background: var(--reactant); }
+  .particle.product { background: var(--product); }
+  .particle.enter { transform: scale(0); opacity: 0; }
+  .particle.leave { transform: scale(0); opacity: 0; }
+
+  .predict-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .predict-btn {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px 10px; font-size: 15px; font-weight: 700; color: var(--ink);
+    cursor: pointer; text-align: center; font-family: inherit;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    touch-action: manipulation;
+  }
+  .predict-btn:hover { border-color: var(--accent); }
+  .predict-btn:active { transform: scale(0.97); }
+  .predict-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .predict-btn.correct { background: color-mix(in srgb, var(--neutral) 30%, var(--panel)); border-color: var(--neutral); }
+  .predict-btn.wrong { background: color-mix(in srgb, var(--danger) 28%, var(--panel)); border-color: var(--danger); }
+  .predict-btn.locked { cursor: default; }
+
+  .overlay {
+    position: absolute; inset: -8px; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; text-align: center; border-radius: 16px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); padding: 20px; z-index: 5;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { margin: 0; font-size: 26px; text-wrap: balance; letter-spacing: -0.01em; }
+  .overlay p { margin: 0; color: var(--ink-dim); max-width: 44ch; line-height: 1.6; font-size: 14px; }
+  .go-btn {
+    margin-top: 6px; background: var(--accent); color: #1a1006; border: none; font-weight: 700;
+    font-size: 15px; padding: 10px 26px; border-radius: 999px; cursor: pointer; letter-spacing: 0.01em;
+    touch-action: manipulation;
+  }
+  .go-btn:hover { filter: brightness(1.08); }
+  .go-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 12px; color: var(--ink-dim); padding: 2px 4px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  @media (max-width: 520px) {
+    .brand h1 { font-size: 16px; }
+    .reaction-card .equation { font-size: 22px; }
+    .reaction-card .stimulus { font-size: 15px; }
+    .chip { font-size: 11px; padding: 6px 12px; }
+    .predict-btn { font-size: 13px; padding: 16px 6px; }
+    .particle { width: 18px; height: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="rig">
+  <header class="console">
+    <div class="brand">
+      <span class="eyebrow">EQUILIBRIUM ARCADE · UNIT 3</span>
+      <h1>화학평형 이동 시뮬레이터</h1>
+    </div>
+    <div class="readouts">
+      <div class="readout">
+        <span class="label">SCORE</span>
+        <span class="value mono" id="scoreVal">0</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="reaction-card">
+      <span class="tag" id="tagLine">반응 이름 (발열)</span>
+      <span class="equation mono" id="eqLine">N₂ + 3H₂ ⇌ 2NH₃</span>
+      <span class="stimulus" id="stimulusLine">자극: 온도 증가</span>
+      <div class="chip-row" id="chipRow"></div>
+    </div>
+
+    <div class="particle-stage">
+      <div class="particle-col">
+        <span class="col-label">반응물</span>
+        <div class="particle-grid" id="reactantGrid"></div>
+      </div>
+      <div class="particle-col">
+        <span class="col-label">생성물</span>
+        <div class="particle-grid" id="productGrid"></div>
+      </div>
+    </div>
+
+    <div class="predict-grid" id="predictGrid"></div>
+
+    <div class="overlay" id="startOverlay">
+      <h2>화학평형 이동 시뮬레이터</h2>
+      <p>
+        평형 반응식에 농도·온도·압력·촉매 자극을 가하면 평형이 어느 쪽으로 이동할지 예측해보세요.
+        정반응 이동 / 역반응 이동 / 변화 없음 중 선택하면, 정답 방향으로 반응물·생성물 입자 수가
+        애니메이션으로 이동합니다. 10문제, 문제당 10점(총 100점 만점)입니다.
+      </p>
+      <button class="go-btn" id="startBtn">시작하기</button>
+    </div>
+
+    <div class="overlay hidden" id="overOverlay">
+      <h2>결과</h2>
+      <p id="overDetail">최종 점수: 0 / 100</p>
+      <button class="go-btn" id="retryBtn">다시 도전하기</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--reactant)"></i>반응물</span>
+    <span><i class="dot" style="background:var(--product)"></i>생성물</span>
+    <span><i class="dot" style="background:var(--neutral)"></i>정답</span>
+    <span><i class="dot" style="background:var(--danger)"></i>오답</span>
+  </div>
+  <div class="legend">
+    <span><a href="index.html" style="color:var(--accent)">중화 반응 양적 관계 →</a></span>
+    <span><a href="mole.html" style="color:var(--accent)">1단원: 몰과 화학반응식의 양적 관계 →</a></span>
+    <span><a href="shape.html" style="color:var(--accent)">2단원: 분자 모양 퀴즈 →</a></span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const SUB_DIGITS = { "0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉" };
+
+  const QUESTIONS_PER_GAME = 10;
+  const POINTS_PER_QUESTION = 10;
+  const MAX_SCORE = QUESTIONS_PER_GAME * POINTS_PER_QUESTION;
+  const BASE_N = 6;
+  const DELTA_N = 2;
+  const FEEDBACK_MS = 900;
+  const ANIM_MS = 400;
+  const PAUSE_MS = 700;
+
+  const REACTIONS = [
+    { name: "암모니아 생성 반응", reactants: [["N2",1],["H2",3]], products: [["NH3",2]], enthalpy: "exo", deltaN: -2 },
+    { name: "삼산화황 생성 반응", reactants: [["SO2",2],["O2",1]], products: [["SO3",2]], enthalpy: "exo", deltaN: -1 },
+    { name: "사산화이질소의 분해 반응", reactants: [["N2O4",1]], products: [["NO2",2]], enthalpy: "endo", deltaN: 1 },
+    { name: "아이오딘화 수소 생성 반응", reactants: [["H2",1],["I2",1]], products: [["HI",2]], enthalpy: "exo", deltaN: 0 },
+  ];
+
+  const STIMULI = [
+    { key: "conc_up", category: "농도", label: "농도 증가 (반응물 추가)" },
+    { key: "conc_down", category: "농도", label: "농도 감소 (반응물 제거)" },
+    { key: "temp_up", category: "온도", label: "온도 증가" },
+    { key: "temp_down", category: "온도", label: "온도 감소" },
+    { key: "press_up", category: "압력", label: "압력 증가" },
+    { key: "press_down", category: "압력", label: "압력 감소" },
+    { key: "catalyst", category: "촉매", label: "촉매 추가" },
+  ];
+  const CATEGORIES = ["농도", "온도", "압력", "촉매"];
+  const CHOICES = [
+    { key: "forward", label: "정반응 이동" },
+    { key: "backward", label: "역반응 이동" },
+    { key: "none", label: "변화 없음" },
+  ];
+
+  const choice = (arr) => arr[(Math.random() * arr.length) | 0];
+  function formatSpecies(f) { return f.replace(/[0-9]/g, (d) => SUB_DIGITS[d]); }
+  function formatEquation(r) {
+    const side = (species) => species.map(([f, c]) => (c === 1 ? "" : c) + formatSpecies(f)).join(" + ");
+    return `${side(r.reactants)}  ⇌  ${side(r.products)}`;
+  }
+
+  function determineShift(reaction, key) {
+    if (key === "conc_up") return "forward";
+    if (key === "conc_down") return "backward";
+    if (key === "temp_up") return reaction.enthalpy === "exo" ? "backward" : "forward";
+    if (key === "temp_down") return reaction.enthalpy === "exo" ? "forward" : "backward";
+    if (key === "press_up") return reaction.deltaN < 0 ? "forward" : reaction.deltaN > 0 ? "backward" : "none";
+    if (key === "press_down") return reaction.deltaN < 0 ? "backward" : reaction.deltaN > 0 ? "forward" : "none";
+    return "none"; // catalyst
+  }
+
+  function buildQuestion() {
+    const reaction = choice(REACTIONS);
+    const stimulus = choice(STIMULI);
+    const correct = determineShift(reaction, stimulus.key);
+    return { reaction, stimulus, correct };
+  }
+
+  const scoreVal = document.getElementById("scoreVal");
+  const tagLine = document.getElementById("tagLine");
+  const eqLine = document.getElementById("eqLine");
+  const stimulusLine = document.getElementById("stimulusLine");
+  const chipRow = document.getElementById("chipRow");
+  const reactantGrid = document.getElementById("reactantGrid");
+  const productGrid = document.getElementById("productGrid");
+  const predictGrid = document.getElementById("predictGrid");
+  const startOverlay = document.getElementById("startOverlay");
+  const overOverlay = document.getElementById("overOverlay");
+  const overDetail = document.getElementById("overDetail");
+  const startBtn = document.getElementById("startBtn");
+  const retryBtn = document.getElementById("retryBtn");
+
+  CATEGORIES.forEach((cat) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = cat;
+    chip.dataset.cat = cat;
+    chipRow.appendChild(chip);
+  });
+  const chipEls = [...chipRow.children];
+
+  function renderParticles(container, cls, n) {
+    container.innerHTML = "";
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement("div");
+      p.className = `particle ${cls}`;
+      container.appendChild(p);
+    }
+  }
+
+  function animateSide(container, cls, current, target) {
+    const diff = target - current;
+    if (diff > 0) {
+      const added = [];
+      for (let i = 0; i < diff; i++) {
+        const p = document.createElement("div");
+        p.className = `particle ${cls} enter`;
+        container.appendChild(p);
+        added.push(p);
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        added.forEach((p) => p.classList.remove("enter"));
+      }));
+    } else if (diff < 0) {
+      const removeCount = -diff;
+      const toRemove = [...container.children].slice(-removeCount);
+      toRemove.forEach((p) => p.classList.add("leave"));
+      setTimeout(() => toRemove.forEach((p) => p.remove()), 320);
+    }
+  }
+
+  let state = null;
+  function freshState() {
+    return {
+      index: 0,
+      question: buildQuestion(),
+      score: 0,
+      reactantN: BASE_N,
+      productN: BASE_N,
+      phase: "predicting",
+      running: false,
+    };
+  }
+  state = freshState();
+
+  function renderQuestion() {
+    const q = state.question;
+    const r = q.reaction;
+    tagLine.textContent = `${r.name} (${r.enthalpy === "exo" ? "발열" : "흡열"})`;
+    eqLine.textContent = formatEquation(r);
+    stimulusLine.textContent = `자극: ${q.stimulus.label}`;
+    chipEls.forEach((chip) => chip.classList.toggle("active", chip.dataset.cat === q.stimulus.category));
+
+    state.reactantN = BASE_N;
+    state.productN = BASE_N;
+    renderParticles(reactantGrid, "reactant", BASE_N);
+    renderParticles(productGrid, "product", BASE_N);
+
+    predictGrid.innerHTML = "";
+    CHOICES.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.className = "predict-btn";
+      btn.type = "button";
+      btn.textContent = c.label;
+      btn.dataset.key = c.key;
+      btn.addEventListener("click", () => choose(c.key));
+      predictGrid.appendChild(btn);
+    });
+    state.phase = "predicting";
+  }
+
+  function updateHud() { scoreVal.textContent = state.score; }
+
+  function choose(key) {
+    if (!state.running || state.phase !== "predicting") return;
+    state.phase = "revealing";
+    const correct = state.question.correct;
+    [...predictGrid.children].forEach((btn) => {
+      btn.classList.add("locked");
+      if (btn.dataset.key === correct) btn.classList.add("correct");
+      else if (btn.dataset.key === key && key !== correct) btn.classList.add("wrong");
+    });
+    if (key === correct) {
+      state.score += POINTS_PER_QUESTION;
+      updateHud();
+    }
+
+    let targetReactant = BASE_N, targetProduct = BASE_N;
+    if (correct === "forward") { targetReactant = BASE_N - DELTA_N; targetProduct = BASE_N + DELTA_N; }
+    else if (correct === "backward") { targetReactant = BASE_N + DELTA_N; targetProduct = BASE_N - DELTA_N; }
+
+    setTimeout(() => {
+      state.phase = "animating";
+      animateSide(reactantGrid, "reactant", state.reactantN, targetReactant);
+      animateSide(productGrid, "product", state.productN, targetProduct);
+      state.reactantN = targetReactant;
+      state.productN = targetProduct;
+      setTimeout(() => {
+        state.phase = "pausing";
+        setTimeout(nextQuestion, PAUSE_MS);
+      }, ANIM_MS);
+    }, FEEDBACK_MS);
+  }
+
+  function nextQuestion() {
+    state.index++;
+    if (state.index >= QUESTIONS_PER_GAME) { endGame(); return; }
+    state.question = buildQuestion();
+    renderQuestion();
+  }
+
+  function startGame() {
+    state = freshState();
+    state.running = true;
+    startOverlay.classList.add("hidden");
+    overOverlay.classList.add("hidden");
+    renderQuestion();
+    updateHud();
+  }
+  startBtn.addEventListener("click", startGame);
+  retryBtn.addEventListener("click", startGame);
+
+  function endGame() {
+    state.running = false;
+    overDetail.textContent = `최종 점수: ${state.score} / ${MAX_SCORE}`;
+    overOverlay.classList.remove("hidden");
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (!state.running) {
+      if ((e.key === "Enter" || e.key === " ") &&
+          (!startOverlay.classList.contains("hidden") || !overOverlay.classList.contains("hidden"))) {
+        startGame();
+      }
+      return;
+    }
+    if (state.phase !== "predicting") return;
+    const idx = { "1": 0, "2": 1, "3": 2 }[e.key];
+    if (idx !== undefined && predictGrid.children[idx]) {
+      choose(predictGrid.children[idx].dataset.key);
+    }
+  });
+
+  renderQuestion();
+  updateHud();
+})();
+</script>
