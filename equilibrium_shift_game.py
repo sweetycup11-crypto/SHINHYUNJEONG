@@ -32,6 +32,7 @@ PAUSE_AFTER_ANIM_FRAMES = 40  # 이동 애니메이션 종료 후 다음 문제 
 QUESTIONS_PER_GAME = 10
 POINTS_PER_QUESTION = 10
 MAX_SCORE = QUESTIONS_PER_GAME * POINTS_PER_QUESTION
+TIME_LIMIT_FRAMES = 7 * FPS  # 문제당 제한시간 7초
 
 BASE_N = 6   # 반응물/생성물 원 기본 개수
 DELTA_N = 2  # 평형 이동 시 늘거나 줄어드는 원 개수
@@ -197,6 +198,7 @@ def main():
             "phase": "predicting",  # predicting -> revealing -> animating -> pausing
             "phase_timer": 0,
             "anim_timer": 0,
+            "time_left": TIME_LIMIT_FRAMES,
             "started": False,
             "game_over": False,
         }
@@ -215,6 +217,7 @@ def main():
         state["target_reactant_n"] = BASE_N
         state["target_product_n"] = BASE_N
         state["phase"] = "predicting"
+        state["time_left"] = TIME_LIMIT_FRAMES
 
     def choose(key):
         if state["phase"] != "predicting":
@@ -272,7 +275,11 @@ def main():
                     choose(CHOICES[idx]["key"])
 
         if state["started"] and not state["game_over"]:
-            if state["phase"] == "revealing":
+            if state["phase"] == "predicting":
+                state["time_left"] -= 1
+                if state["time_left"] <= 0:
+                    choose(None)
+            elif state["phase"] == "revealing":
                 state["phase_timer"] -= 1
                 if state["phase_timer"] <= 0:
                     state["phase"] = "animating"
@@ -330,6 +337,17 @@ def main():
                 screen.blit(cat_label, (cx + chip_w / 2 - cat_label.get_width() / 2,
                                          176 + chip_h / 2 - cat_label.get_height() / 2))
 
+            if state["phase"] == "predicting":
+                frac = max(state["time_left"], 0) / TIME_LIMIT_FRAMES
+                bar_w, bar_h = 300, 7
+                bar_x, bar_y = WIDTH / 2 - bar_w / 2, 222
+                timer_color = NEUTRAL_GREEN if frac > 0.4 else (230, 180, 60) if frac > 0.2 else WRONG_RED
+                pygame.draw.rect(screen, PANEL_COLOR, (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+                pygame.draw.rect(screen, timer_color, (bar_x, bar_y, bar_w * frac, bar_h), border_radius=4)
+                seconds_left = (max(state["time_left"], 0) + FPS - 1) // FPS
+                time_label = font_chip.render(f"{seconds_left}s", True, DIM_TEXT_COLOR)
+                screen.blit(time_label, (WIDTH / 2 - time_label.get_width() / 2, bar_y + 11))
+
             reactant_label = font_small.render("반응물", True, DIM_TEXT_COLOR)
             screen.blit(reactant_label, (WIDTH * 0.27 - reactant_label.get_width() / 2, 250))
             product_label = font_small.render("생성물", True, DIM_TEXT_COLOR)
@@ -348,7 +366,8 @@ def main():
                          "화학평형 이동 시뮬레이터",
                          ["평형 반응식에 농도·온도·압력·촉매 자극을 가하면 평형이 어느 쪽으로",
                           "이동할지 예측해보세요. 정반응 이동 / 역반응 이동 / 변화 없음 중 선택합니다.",
-                          f"{QUESTIONS_PER_GAME}문제, 문제당 {POINTS_PER_QUESTION}점(총 {MAX_SCORE}점 만점)입니다."])
+                          f"{QUESTIONS_PER_GAME}문제, 문제당 {POINTS_PER_QUESTION}점(총 {MAX_SCORE}점 만점)이며,",
+                          "문제당 제한시간은 7초입니다."])
             start_btn.draw(screen, font_small)
         elif state["game_over"]:
             overlay_text(screen, font_big, font_small,

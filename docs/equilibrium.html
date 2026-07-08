@@ -92,6 +92,10 @@
   }
   .chip.active { background: var(--accent); color: #1a1006; border-color: var(--accent); }
 
+  .timer-track { height: 6px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin-top: 6px; }
+  .timer-fill { height: 100%; width: 100%; background: var(--neutral); transition: background 0.2s ease; }
+  .timer-label { display: block; font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+
   .particle-stage { display: flex; gap: 16px; }
   .particle-col {
     flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
@@ -188,6 +192,8 @@
       <span class="equation mono" id="eqLine">N₂ + 3H₂ ⇌ 2NH₃</span>
       <span class="stimulus" id="stimulusLine">자극: 온도 증가</span>
       <div class="chip-row" id="chipRow"></div>
+      <div class="timer-track"><div class="timer-fill" id="timerFill"></div></div>
+      <span class="timer-label mono" id="timerLabel">7s</span>
     </div>
 
     <div class="particle-stage">
@@ -208,7 +214,8 @@
       <p>
         평형 반응식에 농도·온도·압력·촉매 자극을 가하면 평형이 어느 쪽으로 이동할지 예측해보세요.
         정반응 이동 / 역반응 이동 / 변화 없음 중 선택하면, 정답 방향으로 반응물·생성물 입자 수가
-        애니메이션으로 이동합니다. 10문제, 문제당 10점(총 100점 만점)입니다.
+        애니메이션으로 이동합니다. 10문제, 문제당 10점(총 100점 만점)이며,
+        문제당 제한시간 7초 안에 고르지 못하면 오답으로 처리됩니다.
       </p>
       <button class="go-btn" id="startBtn">시작하기</button>
     </div>
@@ -258,6 +265,7 @@
   const FEEDBACK_MS = 900;
   const ANIM_MS = 400;
   const PAUSE_MS = 700;
+  const TIME_LIMIT_MS = 7000;
 
   const REACTIONS = [
     { name: "암모니아 생성 반응", reactants: [["N2",1],["H2",3]], products: [["NH3",2]], enthalpy: "exo", deltaN: -2 },
@@ -311,6 +319,8 @@
   const eqLine = document.getElementById("eqLine");
   const stimulusLine = document.getElementById("stimulusLine");
   const chipRow = document.getElementById("chipRow");
+  const timerFill = document.getElementById("timerFill");
+  const timerLabel = document.getElementById("timerLabel");
   const reactantGrid = document.getElementById("reactantGrid");
   const productGrid = document.getElementById("productGrid");
   const predictGrid = document.getElementById("predictGrid");
@@ -402,8 +412,34 @@
 
   function updateHud() { scoreVal.textContent = state.score; }
 
+  let countdownRAF = null;
+  let questionStartTime = 0;
+
+  function cancelCountdown() {
+    if (countdownRAF !== null) cancelAnimationFrame(countdownRAF);
+    countdownRAF = null;
+  }
+  function startCountdown() {
+    cancelCountdown();
+    questionStartTime = performance.now();
+    countdownRAF = requestAnimationFrame(tickCountdown);
+  }
+  function tickCountdown(now) {
+    const remaining = Math.max(0, TIME_LIMIT_MS - (now - questionStartTime));
+    const frac = remaining / TIME_LIMIT_MS;
+    timerFill.style.width = `${frac * 100}%`;
+    timerFill.style.background = frac > 0.4 ? "var(--neutral)" : frac > 0.2 ? "#e0b43c" : "var(--danger)";
+    timerLabel.textContent = `${Math.ceil(remaining / 1000)}s`;
+    if (remaining <= 0) {
+      choose(null);
+      return;
+    }
+    countdownRAF = requestAnimationFrame(tickCountdown);
+  }
+
   function choose(key) {
     if (!state.running || state.phase !== "predicting") return;
+    cancelCountdown();
     state.phase = "revealing";
     const correct = state.question.correct;
     [...predictGrid.children].forEach((btn) => {
@@ -438,6 +474,7 @@
     if (state.index >= QUESTIONS_PER_GAME) { endGame(); return; }
     state.question = buildQuestion();
     renderQuestion();
+    startCountdown();
   }
 
   function startGame() {
@@ -447,12 +484,14 @@
     overOverlay.classList.add("hidden");
     renderQuestion();
     updateHud();
+    startCountdown();
   }
   startBtn.addEventListener("click", startGame);
   retryBtn.addEventListener("click", startGame);
 
   function endGame() {
     state.running = false;
+    cancelCountdown();
     overDetail.textContent = `최종 점수: ${state.score} / ${MAX_SCORE}`;
     const record = updateHighscore(state.score);
     highscoreLine.textContent = `🏆 최고 기록: ${record.name} — ${record.score}점`;
