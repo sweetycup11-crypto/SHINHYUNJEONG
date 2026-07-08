@@ -176,7 +176,7 @@
       <p>
         제시된 분자식을 보고 VSEPR 모형에 따른 분자 모양을 골라보세요.
         직선형 · 평면삼각형 · 정사면체형 · 삼각뿔형 · 굽은형, 30개 분자 중 10개가 매번 무작위로 출제됩니다.
-        문제당 제한시간은 5초이며, 시간 안에 고르지 못하면 오답으로 처리됩니다.
+        문제당 10점씩 총 100점 만점이며, 제한시간 5초 안에 고르지 못하면 오답으로 처리됩니다.
       </p>
       <p><span class="kbd">카드 클릭</span> 또는 <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> 키로 선택</p>
       <button class="go-btn" id="startBtn">시작하기</button>
@@ -184,7 +184,7 @@
 
     <div class="overlay hidden" id="overOverlay">
       <h2>결과</h2>
-      <p id="overDetail">최종 점수: 0 / 30</p>
+      <p id="overDetail">최종 점수: 0 / 100</p>
       <button class="go-btn" id="retryBtn">다시 도전하기</button>
     </div>
   </div>
@@ -239,6 +239,8 @@
 
   const TIME_LIMIT_MS = 5000;
   const QUESTIONS_PER_GAME = 10;
+  const POINTS_PER_QUESTION = 10;
+  const MAX_SCORE = QUESTIONS_PER_GAME * POINTS_PER_QUESTION;
 
   const scoreVal = document.getElementById("scoreVal");
   const remainVal = document.getElementById("remainVal");
@@ -334,7 +336,7 @@
       if (c.dataset.label === correct) c.classList.add("correct");
       else if (label !== null && c.dataset.label === label && label !== correct) c.classList.add("wrong");
     });
-    if (label === correct) state.score++;
+    if (label === correct) state.score += POINTS_PER_QUESTION;
     updateHud();
     setTimeout(nextQuestion, FEEDBACK_MS);
   }
@@ -366,7 +368,7 @@
   function endGame() {
     state.running = false;
     cancelCountdown();
-    overDetail.textContent = `최종 점수: ${state.score} / ${state.order.length}`;
+    overDetail.textContent = `최종 점수: ${state.score} / ${MAX_SCORE}`;
     updateHud();
     overOverlay.classList.remove("hidden");
   }
