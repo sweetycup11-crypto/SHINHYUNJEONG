@@ -1,8 +1,23 @@
 import ExcelJS from "exceljs/dist/exceljs.bare.min.js";
 
-const HEADERS = ["유형", "단계", "문제", "보기1", "보기2", "보기3", "보기4", "보기5", "정답", "해설", "힌트1", "힌트2"];
+const HEADERS = ["유형", "단계", "문제", "보기1", "보기2", "보기3", "보기4", "보기5", "정답", "해설", "힌트1", "힌트2", "ID"];
 
-const GUIDE_LINES = [
+async function triggerXlsxDownload(wb, filename) {
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+const TEMPLATE_GUIDE_LINES = [
   ["문제 업로드 안내"],
   [""],
   ["유형: '진단평가' 또는 '형성평가' 중 하나를 입력하세요."],
@@ -12,6 +27,7 @@ const GUIDE_LINES = [
   ["정답: 정답 선택지를 A, B, C, D, E 중 하나로 입력하거나, 몇 번째 보기인지 숫자(1~5)로 입력하세요."],
   ["해설: 학생이 제출한 뒤 보여줄 해설입니다."],
   ["힌트1, 힌트2: 선택 사항입니다 (최대 2개, 비워두면 힌트 없이 등록됩니다)."],
+  ["ID: 새 문제를 추가할 때는 비워두세요. 이 칸이 비어 있으면 새 문제로 추가됩니다."],
   [""],
   ["'문제' 시트의 2행부터 실제 데이터를 입력한 뒤, 교사 모드 > 문제 관리 > 엑셀 업로드에서 이 파일을 업로드하세요."],
 ];
@@ -34,27 +50,61 @@ export async function downloadProblemTemplate() {
     "산소의 원소기호는 O이다.",
     "알파벳 한 글자로 이루어진 원소기호를 찾아보세요.",
     "",
+    "",
   ]);
   ws.columns.forEach((col) => {
     col.width = 18;
   });
 
   const guideWs = wb.addWorksheet("설명");
-  guideWs.addRows(GUIDE_LINES);
+  guideWs.addRows(TEMPLATE_GUIDE_LINES);
   guideWs.getColumn(1).width = 90;
 
-  const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  await triggerXlsxDownload(wb, "문제_업로드_양식.xlsx");
+}
+
+const EXPORT_GUIDE_LINES = [
+  ["문제 수정 안내"],
+  [""],
+  ["이 파일은 현재 등록된 문제를 내려받은 것입니다. 맨 오른쪽 'ID' 열은 지우거나 바꾸지 마세요."],
+  ["내용을 수정한 뒤 그대로 업로드하면, 새 문제로 추가되지 않고 해당 ID의 기존 문제가 수정됩니다."],
+  ["행을 통째로 지우고 업로드해도 그 문제가 자동으로 삭제되지는 않습니다 — 삭제는 화면에서 '삭제' 버튼으로 해주세요."],
+  ["새 문제를 추가하고 싶으면 맨 아래에 새 행을 추가하고 ID 칸은 비워두세요."],
+  [""],
+  ["나머지 컬럼(유형/단계/문제/보기/정답/해설/힌트) 작성 방법은 업로드 양식 파일의 '설명' 시트를 참고하세요."],
+];
+
+export async function downloadProblemsExport(problems) {
+  const wb = new ExcelJS.Workbook();
+
+  const ws = wb.addWorksheet("문제");
+  ws.addRow(HEADERS);
+  for (const p of problems) {
+    ws.addRow([
+      p.type === "diagnostic" ? "진단평가" : "형성평가",
+      p.level,
+      p.stem,
+      p.choices[0] || "",
+      p.choices[1] || "",
+      p.choices[2] || "",
+      p.choices[3] || "",
+      p.choices[4] || "",
+      String.fromCharCode(65 + p.answerIndex),
+      p.explanation || "",
+      p.hints?.[0] || "",
+      p.hints?.[1] || "",
+      p.id,
+    ]);
+  }
+  ws.columns.forEach((col) => {
+    col.width = 18;
   });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "문제_업로드_양식.xlsx";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+
+  const guideWs = wb.addWorksheet("설명");
+  guideWs.addRows(EXPORT_GUIDE_LINES);
+  guideWs.getColumn(1).width = 90;
+
+  await triggerXlsxDownload(wb, "문제_내보내기.xlsx");
 }
 
 function normalizeType(value) {
@@ -83,8 +133,10 @@ function cellText(value) {
 }
 
 // Reads an .xlsx File and returns { payloads, errors } where payloads are
-// ready to send to the bulk-create API (still missing subjectId, added by caller)
-// and errors reference the original spreadsheet row number for easy fixing.
+// ready to send to the create/update APIs (still missing subjectId, added by
+// caller). Each payload carries an `id` when the row's ID column was filled
+// in (i.e. it came from an export) so the caller can update instead of
+// create. Errors reference the original spreadsheet row number.
 export async function parseProblemExcel(file) {
   const wb = new ExcelJS.Workbook();
   const buffer = await file.arrayBuffer();
@@ -109,7 +161,8 @@ export async function parseProblemExcel(file) {
     const stem = get(row, "문제");
     const typeRaw = get(row, "유형");
     const levelRaw = get(row, "단계");
-    if (!stem && !typeRaw && !levelRaw) continue; // skip fully blank rows
+    const id = get(row, "ID") || null;
+    if (!stem && !typeRaw && !levelRaw && !id) continue; // skip fully blank rows
 
     const type = normalizeType(typeRaw);
     const level = Number(levelRaw);
@@ -141,6 +194,7 @@ export async function parseProblemExcel(file) {
 
     payloads.push({
       row: rowNumber,
+      id,
       payload: { type, level, stem, choices, answerIndex, explanation, hints },
     });
   }

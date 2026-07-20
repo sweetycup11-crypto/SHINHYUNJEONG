@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api.js";
-import { downloadProblemTemplate, parseProblemExcel } from "../../excelProblems.js";
+import { downloadProblemTemplate, downloadProblemsExport, parseProblemExcel } from "../../excelProblems.js";
 
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -193,27 +193,69 @@ export default function ProblemManager() {
     setExcelResult(null);
     try {
       const { payloads, errors: parseErrors } = await parseProblemExcel(file);
-      let created = [];
-      let uploadErrors = [];
-      if (payloads.length) {
-        const res = await api.bulkCreateProblems(payloads.map((p) => ({ ...p.payload, subjectId })));
-        created = res.created;
-        uploadErrors = res.errors.map((e) => ({
-          row: payloads[e.index]?.row ?? null,
-          error: e.error,
-        }));
+      // Rows with an ID (from a previous export) update that existing
+      // problem in place; rows without one are added as new problems.
+      const toCreate = payloads.filter((p) => !p.id);
+      const toUpdate = payloads.filter((p) => p.id);
+
+      let createdCount = 0;
+      let updatedCount = 0;
+      const uploadErrors = [];
+
+      if (toCreate.length) {
+        const res = await api.bulkCreateProblems(toCreate.map((p) => ({ ...p.payload, subjectId })));
+        createdCount = res.created.length;
+        uploadErrors.push(
+          ...res.errors.map((e) => ({ row: toCreate[e.index]?.row ?? null, error: e.error }))
+        );
       }
-      const allErrors = [
-        ...parseErrors.map((e) => ({ row: e.row, error: e.error })),
-        ...uploadErrors,
-      ].sort((a, b) => (a.row ?? 0) - (b.row ?? 0));
-      setExcelResult({ createdCount: created.length, errors: allErrors });
+
+      for (const p of toUpdate) {
+        try {
+          await api.updateProblem(p.id, p.payload);
+          updatedCount += 1;
+        } catch (err) {
+          uploadErrors.push({ row: p.row, error: err.message });
+        }
+      }
+
+      const allErrors = [...parseErrors.map((e) => ({ row: e.row, error: e.error })), ...uploadErrors].sort(
+        (a, b) => (a.row ?? 0) - (b.row ?? 0)
+      );
+      setExcelResult({ createdCount, updatedCount, errors: allErrors });
       refreshProblems();
     } catch (err) {
       setError(err.message || "엑셀 파일을 읽는 중 오류가 발생했습니다.");
     } finally {
       setExcelBusy(false);
       setExcelInputKey((k) => k + 1); // reset file input so the same file can be re-selected
+    }
+  }
+
+  async function handleExportExcel() {
+    try {
+      await downloadProblemsExport(problems);
+    } catch (err) {
+      setError(err.message || "내보내기 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function handleDeleteAllVisible() {
+    if (!visibleProblems.length) return;
+    if (
+      !confirm(
+        `현재 목록에 표시된 ${visibleProblems.length}개 문제를 모두 삭제할까요? 이 작업은 되돌릴 수 없습니다.`
+      )
+    )
+      return;
+    setError("");
+    try {
+      for (const p of visibleProblems) {
+        await api.deleteProblem(p.id);
+      }
+      refreshProblems();
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -366,12 +408,23 @@ export default function ProblemManager() {
           <div className="card">
             <h3>엑셀로 문제 업로드</h3>
             <p className="muted">
-              양식을 내려받아 문제를 채운 뒤 업로드하면 현재 선택된 과목(
-              {subjects.find((s) => s.id === subjectId)?.name})에 한 번에 여러 문제가 추가됩니다.
+              <strong>새로 추가</strong>: 양식을 내려받아 문제를 채운 뒤 업로드하면 현재 선택된 과목(
+              {subjects.find((s) => s.id === subjectId)?.name})에 새 문제로 추가됩니다.
+              <br />
+              <strong>기존 문제 수정</strong>: "현재 문제 내보내기"로 받은 파일은 각 행에 ID가 들어있어서, 내용을 고쳐서
+              그대로 업로드하면 새로 추가되지 않고 해당 문제가 수정됩니다.
             </p>
             <div className="row">
               <button type="button" className="btn secondary" onClick={downloadProblemTemplate}>
-                양식 다운로드
+                양식 다운로드 (새 문제용)
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={handleExportExcel}
+                disabled={!problems.length}
+              >
+                현재 문제 내보내기 (수정용)
               </button>
               <label className="btn" style={{ cursor: "pointer" }}>
                 {excelBusy ? "업로드하는 중..." : "엑셀 파일 선택"}
@@ -387,7 +440,7 @@ export default function ProblemManager() {
             </div>
             {excelResult && (
               <p className="muted" style={{ marginTop: 10 }}>
-                생성됨: {excelResult.createdCount}개
+                추가됨: {excelResult.createdCount}개 · 수정됨: {excelResult.updatedCount}개
                 {excelResult.errors.length > 0 && ` · 오류: ${excelResult.errors.length}개`}
               </p>
             )}
@@ -449,14 +502,23 @@ export default function ProblemManager() {
               <h3 style={{ margin: 0 }}>
                 문제 목록 ({visibleProblems.length}개)
               </h3>
-              <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} style={{ width: 140 }}>
-                <option value="all">전체 단계</option>
-                {LEVELS.map((lv) => (
-                  <option key={lv} value={lv}>
-                    {lv}단계
-                  </option>
-                ))}
-              </select>
+              <div className="row">
+                <select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)} style={{ width: 140 }}>
+                  <option value="all">전체 단계</option>
+                  {LEVELS.map((lv) => (
+                    <option key={lv} value={lv}>
+                      {lv}단계
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn danger sm"
+                  onClick={handleDeleteAllVisible}
+                  disabled={!visibleProblems.length}
+                >
+                  현재 목록 전체 삭제
+                </button>
+              </div>
             </div>
             {visibleProblems.length === 0 && <p className="muted">문제가 없습니다.</p>}
             <div className="stack" style={{ marginTop: 10 }}>
