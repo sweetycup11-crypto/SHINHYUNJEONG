@@ -152,17 +152,18 @@ app.delete("/api/subjects/:id", requireTeacherAuth, async (req, res) => {
 
 // Full problem data (includes correct answers) is teacher-only.
 app.get("/api/problems", requireTeacherAuth, (req, res) => {
-  const { subjectId, type, level } = req.query;
+  const { subjectId, type, level, unit } = req.query;
   const state = getState();
   let items = state.problems;
   if (subjectId) items = items.filter((p) => p.subjectId === subjectId);
   if (type) items = items.filter((p) => p.type === type);
   if (level) items = items.filter((p) => p.level === Number(level));
+  if (unit) items = items.filter((p) => (p.unit || "") === unit);
   res.json(items);
 });
 
 function validateProblemBody(body) {
-  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints } = body;
+  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints, unit } = body;
   if (!subjectId || !type || !stem || !Array.isArray(choices) || choices.length < 4) {
     return "subjectId, type, stem, choices(4개 이상)는 필수입니다.";
   }
@@ -172,6 +173,7 @@ function validateProblemBody(body) {
     return "answerIndex가 유효하지 않습니다.";
   }
   if (hints && (!Array.isArray(hints) || hints.length > 2)) return "hints는 최대 2개의 배열이어야 합니다.";
+  if (unit !== undefined && unit !== null && typeof unit !== "string") return "unit은 문자열이어야 합니다.";
   return null;
 }
 
@@ -179,7 +181,7 @@ app.post("/api/problems", requireTeacherAuth, async (req, res) => {
   const error = validateProblemBody(req.body);
   if (error) return res.status(400).json({ error });
   const state = getState();
-  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints } = req.body;
+  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints, unit } = req.body;
   if (!state.subjects.find((s) => s.id === subjectId)) {
     return res.status(400).json({ error: "존재하지 않는 과목입니다." });
   }
@@ -193,6 +195,7 @@ app.post("/api/problems", requireTeacherAuth, async (req, res) => {
     answerIndex,
     explanation: explanation || "",
     hints: hints || [],
+    unit: unit || "",
     createdAt: new Date().toISOString(),
   };
   state.problems.push(problem);
@@ -226,6 +229,7 @@ app.post("/api/problems/bulk", requireTeacherAuth, async (req, res) => {
       answerIndex: p.answerIndex,
       explanation: p.explanation || "",
       hints: p.hints || [],
+      unit: p.unit || "",
       createdAt: new Date().toISOString(),
     };
     state.problems.push(problem);
@@ -250,6 +254,7 @@ app.put("/api/problems/:id", requireTeacherAuth, async (req, res) => {
     answerIndex: merged.answerIndex,
     explanation: merged.explanation || "",
     hints: merged.hints || [],
+    unit: merged.unit || "",
   });
   await setState(state);
   res.json(problem);

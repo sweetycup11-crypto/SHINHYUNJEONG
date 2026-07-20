@@ -9,6 +9,7 @@ function emptyForm(type, level) {
     id: null,
     type,
     level,
+    unit: "",
     stem: "",
     choices: ["", "", "", ""],
     answerIndex: 0,
@@ -21,6 +22,7 @@ const BULK_EXAMPLE = `[
   {
     "type": "formative",
     "level": 3,
+    "unit": "1단원: 몰과 화학양론",
     "stem": "문제 내용을 입력하세요",
     "choices": ["보기1", "보기2", "보기3", "보기4"],
     "answerIndex": 0,
@@ -34,6 +36,7 @@ export default function ProblemManager() {
   const [subjectId, setSubjectId] = useState("");
   const [type, setType] = useState("formative");
   const [levelFilter, setLevelFilter] = useState("all");
+  const [unitFilter, setUnitFilter] = useState("all");
   const [problems, setProblems] = useState([]);
   const [form, setForm] = useState(emptyForm("formative", 1));
   const [error, setError] = useState("");
@@ -65,6 +68,7 @@ export default function ProblemManager() {
 
   useEffect(() => {
     setForm(emptyForm(type, 1));
+    setUnitFilter("all");
   }, [type, subjectId]);
 
   function startEdit(p) {
@@ -72,6 +76,7 @@ export default function ProblemManager() {
       id: p.id,
       type: p.type,
       level: p.level,
+      unit: p.unit || "",
       stem: p.stem,
       choices: [...p.choices],
       answerIndex: p.answerIndex,
@@ -130,6 +135,7 @@ export default function ProblemManager() {
       subjectId,
       type: form.type,
       level: Number(form.level),
+      unit: form.unit.trim(),
       stem: form.stem.trim(),
       choices: form.choices.map((c) => c.trim()),
       answerIndex: Number(form.answerIndex),
@@ -259,8 +265,15 @@ export default function ProblemManager() {
     }
   }
 
+  const units = [...new Set(problems.map((p) => p.unit).filter(Boolean))].sort();
+
   const visibleProblems = problems
     .filter((p) => levelFilter === "all" || p.level === Number(levelFilter))
+    .filter((p) => {
+      if (unitFilter === "all") return true;
+      if (unitFilter === "__none__") return !p.unit;
+      return p.unit === unitFilter;
+    })
     .sort((a, b) => a.level - b.level);
 
   return (
@@ -315,6 +328,22 @@ export default function ProblemManager() {
                     <option value="formative">형성평가</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label>단원 (선택, 예: 1단원: 몰과 화학양론)</label>
+                <input
+                  type="text"
+                  list="unit-options"
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  placeholder="비워두면 단원 없이 등록됩니다"
+                />
+                <datalist id="unit-options">
+                  {units.map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -520,12 +549,44 @@ export default function ProblemManager() {
                 </button>
               </div>
             </div>
-            {visibleProblems.length === 0 && <p className="muted">문제가 없습니다.</p>}
+            {units.length > 0 && (
+              <div className="row" style={{ marginTop: 10, flexWrap: "wrap" }}>
+                <button
+                  className={`btn sm ${unitFilter === "all" ? "" : "secondary"}`}
+                  onClick={() => setUnitFilter("all")}
+                >
+                  전체 단원
+                </button>
+                {units.map((u) => (
+                  <button
+                    key={u}
+                    className={`btn sm ${unitFilter === u ? "" : "secondary"}`}
+                    onClick={() => setUnitFilter(u)}
+                  >
+                    {u}
+                  </button>
+                ))}
+                <button
+                  className={`btn sm ${unitFilter === "__none__" ? "" : "secondary"}`}
+                  onClick={() => setUnitFilter("__none__")}
+                >
+                  단원 없음
+                </button>
+              </div>
+            )}
+            {visibleProblems.length === 0 && (
+              <p className="muted" style={{ marginTop: 10 }}>
+                문제가 없습니다.
+              </p>
+            )}
             <div className="stack" style={{ marginTop: 10 }}>
               {visibleProblems.map((p) => (
                 <div key={p.id} className="card" style={{ margin: 0, boxShadow: "none" }}>
                   <div className="row between">
-                    <span className="tag">{p.level}단계</span>
+                    <div className="row">
+                      <span className="tag">{p.level}단계</span>
+                      {p.unit && <span className="tag warn">{p.unit}</span>}
+                    </div>
                     <div className="row">
                       <button className="btn secondary sm" onClick={() => startEdit(p)}>
                         수정

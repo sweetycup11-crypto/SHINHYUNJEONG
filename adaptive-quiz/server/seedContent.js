@@ -213,3 +213,27 @@ export const subjectsSeed = [
   { key: "chemistry", name: "화학", diagnostic: chemistryDiagnostic, formative: chemistryFormative },
   { key: "math", name: "수학", diagnostic: mathDiagnostic, formative: mathFormative },
 ];
+
+// Example 단원(unit) grouping so the demo shows teachers what the unit tabs look like.
+// Purely a display/organization tag — does not affect the diagnostic/formative flow.
+const unitRanges = {
+  chemistry: [
+    { max: 3, name: "1단원: 원소와 원자구조" },
+    { max: 6, name: "2단원: 몰과 화학반응식" },
+    { max: 8, name: "3단원: 용액과 산염기" },
+    { max: 10, name: "4단원: 산화환원과 화학평형" },
+  ],
+  math: [
+    { max: 3, name: "1단원: 수와 연산" },
+    { max: 6, name: "2단원: 방정식과 부등식" },
+    { max: 8, name: "3단원: 함수" },
+    { max: 10, name: "4단원: 수열과 미분" },
+  ],
+};
+
+export function unitForLevel(subjectKey, level) {
+  const ranges = unitRanges[subjectKey];
+  if (!ranges) return "";
+  const match = ranges.find((r) => level <= r.max);
+  return match ? match.name : "";
+}

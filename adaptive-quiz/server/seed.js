@@ -1,5 +1,5 @@
 import { getState, setState, newId, resetAll } from "./db.js";
-import { subjectsSeed } from "./seedContent.js";
+import { subjectsSeed, unitForLevel } from "./seedContent.js";
 
 export async function seedDatabase() {
   await resetAll();
@@ -21,6 +21,7 @@ export async function seedDatabase() {
         answerIndex: p.answerIndex,
         explanation: p.explanation,
         hints: p.hints,
+        unit: unitForLevel(subj.key, p.level),
         createdAt: now,
       });
     }
@@ -35,6 +36,7 @@ export async function seedDatabase() {
         answerIndex: p.answerIndex,
         explanation: p.explanation,
         hints: p.hints,
+        unit: unitForLevel(subj.key, p.level),
         createdAt: now,
       });
     }

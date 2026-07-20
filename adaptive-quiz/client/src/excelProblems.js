@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs/dist/exceljs.bare.min.js";
 
-const HEADERS = ["유형", "단계", "문제", "보기1", "보기2", "보기3", "보기4", "보기5", "정답", "해설", "힌트1", "힌트2", "ID"];
+const HEADERS = ["유형", "단계", "단원", "문제", "보기1", "보기2", "보기3", "보기4", "보기5", "정답", "해설", "힌트1", "힌트2", "ID"];
 
 async function triggerXlsxDownload(wb, filename) {
   const buffer = await wb.xlsx.writeBuffer();
@@ -22,6 +22,7 @@ const TEMPLATE_GUIDE_LINES = [
   [""],
   ["유형: '진단평가' 또는 '형성평가' 중 하나를 입력하세요."],
   ["단계: 1~10 사이의 정수를 입력하세요 (문제 난이도)."],
+  ["단원: 선택 사항입니다. 같은 과목 안에서 문제를 묶어보고 싶을 때 단원 이름을 자유롭게 적으세요(예: '1단원: 몰과 화학양론'). 비워두면 단원 없이 등록됩니다."],
   ["문제: 문제 지문을 입력하세요."],
   ["보기1~보기4: 필수 선택지입니다. 보기5는 선택 사항입니다(5지선다일 때만 입력)."],
   ["정답: 정답 선택지를 A, B, C, D, E 중 하나로 입력하거나, 몇 번째 보기인지 숫자(1~5)로 입력하세요."],
@@ -40,6 +41,7 @@ export async function downloadProblemTemplate() {
   ws.addRow([
     "형성평가",
     3,
+    "1단원: 몰과 화학양론",
     "다음 중 산소 원소를 나타내는 원소기호는?",
     "O",
     "Os",
@@ -83,6 +85,7 @@ export async function downloadProblemsExport(problems) {
     ws.addRow([
       p.type === "diagnostic" ? "진단평가" : "형성평가",
       p.level,
+      p.unit || "",
       p.stem,
       p.choices[0] || "",
       p.choices[1] || "",
@@ -166,6 +169,7 @@ export async function parseProblemExcel(file) {
 
     const type = normalizeType(typeRaw);
     const level = Number(levelRaw);
+    const unit = get(row, "단원");
     const choices = ["보기1", "보기2", "보기3", "보기4", "보기5"].map((k) => get(row, k)).filter(Boolean);
     const answerIndex = parseAnswerIndex(get(row, "정답"), choices.length);
     const explanation = get(row, "해설");
@@ -195,7 +199,7 @@ export async function parseProblemExcel(file) {
     payloads.push({
       row: rowNumber,
       id,
-      payload: { type, level, stem, choices, answerIndex, explanation, hints },
+      payload: { type, level, unit, stem, choices, answerIndex, explanation, hints },
     });
   }
 
