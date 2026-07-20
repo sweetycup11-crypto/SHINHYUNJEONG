@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api.js";
+import { downloadProblemTemplate, parseProblemExcel } from "../../excelProblems.js";
 
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -40,6 +41,9 @@ export default function ProblemManager() {
   const [bulkText, setBulkText] = useState("");
   const [bulkResult, setBulkResult] = useState(null);
   const [showBulk, setShowBulk] = useState(false);
+  const [excelBusy, setExcelBusy] = useState(false);
+  const [excelResult, setExcelResult] = useState(null);
+  const [excelInputKey, setExcelInputKey] = useState(0);
 
   useEffect(() => {
     api.listSubjects().then((list) => {
@@ -178,6 +182,38 @@ export default function ProblemManager() {
       refreshProblems();
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function handleExcelFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setExcelBusy(true);
+    setError("");
+    setExcelResult(null);
+    try {
+      const { payloads, errors: parseErrors } = await parseProblemExcel(file);
+      let created = [];
+      let uploadErrors = [];
+      if (payloads.length) {
+        const res = await api.bulkCreateProblems(payloads.map((p) => ({ ...p.payload, subjectId })));
+        created = res.created;
+        uploadErrors = res.errors.map((e) => ({
+          row: payloads[e.index]?.row ?? null,
+          error: e.error,
+        }));
+      }
+      const allErrors = [
+        ...parseErrors.map((e) => ({ row: e.row, error: e.error })),
+        ...uploadErrors,
+      ].sort((a, b) => (a.row ?? 0) - (b.row ?? 0));
+      setExcelResult({ createdCount: created.length, errors: allErrors });
+      refreshProblems();
+    } catch (err) {
+      setError(err.message || "엑셀 파일을 읽는 중 오류가 발생했습니다.");
+    } finally {
+      setExcelBusy(false);
+      setExcelInputKey((k) => k + 1); // reset file input so the same file can be re-selected
     }
   }
 
@@ -328,8 +364,45 @@ export default function ProblemManager() {
           </div>
 
           <div className="card">
+            <h3>엑셀로 문제 업로드</h3>
+            <p className="muted">
+              양식을 내려받아 문제를 채운 뒤 업로드하면 현재 선택된 과목(
+              {subjects.find((s) => s.id === subjectId)?.name})에 한 번에 여러 문제가 추가됩니다.
+            </p>
+            <div className="row">
+              <button type="button" className="btn secondary" onClick={downloadProblemTemplate}>
+                양식 다운로드
+              </button>
+              <label className="btn" style={{ cursor: "pointer" }}>
+                {excelBusy ? "업로드하는 중..." : "엑셀 파일 선택"}
+                <input
+                  key={excelInputKey}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleExcelFile}
+                  disabled={excelBusy}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </div>
+            {excelResult && (
+              <p className="muted" style={{ marginTop: 10 }}>
+                생성됨: {excelResult.createdCount}개
+                {excelResult.errors.length > 0 && ` · 오류: ${excelResult.errors.length}개`}
+              </p>
+            )}
+            {excelResult && excelResult.errors.length > 0 && (
+              <div className="error-box" style={{ marginTop: 6 }}>
+                {excelResult.errors.map((e, i) => (
+                  <div key={i}>{e.row ? `${e.row}행: ` : ""}{e.error}</div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
             <div className="row between">
-              <h3 style={{ margin: 0 }}>일괄 업로드 (JSON)</h3>
+              <h3 style={{ margin: 0 }}>일괄 업로드 (JSON, 고급)</h3>
               <button className="btn secondary sm" onClick={() => setShowBulk((v) => !v)}>
                 {showBulk ? "닫기" : "열기"}
               </button>

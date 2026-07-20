@@ -20,6 +20,19 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
+const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || "teacher1234";
+if (!process.env.TEACHER_PASSWORD) {
+  console.warn(
+    "[warn] TEACHER_PASSWORD 환경변수가 설정되지 않아 기본 비밀번호(teacher1234)를 사용합니다. 배포 환경에서는 반드시 TEACHER_PASSWORD를 설정하세요."
+  );
+}
+
+function requireTeacherAuth(req, res, next) {
+  const provided = req.header("x-teacher-password");
+  if (provided && provided === TEACHER_PASSWORD) return next();
+  return res.status(401).json({ error: "교사 비밀번호가 필요합니다." });
+}
+
 // ---------- helpers ----------
 
 function slugify(name) {
@@ -98,6 +111,14 @@ function buildRoundProblemPool(state, subjectId, level) {
   return [...lower, ...upper];
 }
 
+// ---------- Teacher auth ----------
+
+app.post("/api/teacher/login", (req, res) => {
+  const { password } = req.body;
+  if (password === TEACHER_PASSWORD) return res.json({ ok: true });
+  return res.status(401).json({ error: "비밀번호가 올바르지 않습니다." });
+});
+
 // ---------- Subjects ----------
 
 app.get("/api/subjects", (req, res) => {
@@ -105,7 +126,7 @@ app.get("/api/subjects", (req, res) => {
   res.json(state.subjects);
 });
 
-app.post("/api/subjects", async (req, res) => {
+app.post("/api/subjects", requireTeacherAuth, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "과목 이름을 입력하세요." });
   const state = getState();
@@ -115,7 +136,7 @@ app.post("/api/subjects", async (req, res) => {
   res.status(201).json(subject);
 });
 
-app.delete("/api/subjects/:id", async (req, res) => {
+app.delete("/api/subjects/:id", requireTeacherAuth, async (req, res) => {
   const state = getState();
   const { id } = req.params;
   state.subjects = state.subjects.filter((s) => s.id !== id);
@@ -129,7 +150,8 @@ app.delete("/api/subjects/:id", async (req, res) => {
 
 // ---------- Problems (teacher CRUD + bulk upload) ----------
 
-app.get("/api/problems", (req, res) => {
+// Full problem data (includes correct answers) is teacher-only.
+app.get("/api/problems", requireTeacherAuth, (req, res) => {
   const { subjectId, type, level } = req.query;
   const state = getState();
   let items = state.problems;
@@ -153,7 +175,7 @@ function validateProblemBody(body) {
   return null;
 }
 
-app.post("/api/problems", async (req, res) => {
+app.post("/api/problems", requireTeacherAuth, async (req, res) => {
   const error = validateProblemBody(req.body);
   if (error) return res.status(400).json({ error });
   const state = getState();
@@ -178,7 +200,7 @@ app.post("/api/problems", async (req, res) => {
   res.status(201).json(problem);
 });
 
-app.post("/api/problems/bulk", async (req, res) => {
+app.post("/api/problems/bulk", requireTeacherAuth, async (req, res) => {
   const { problems } = req.body;
   if (!Array.isArray(problems)) return res.status(400).json({ error: "problems 배열이 필요합니다." });
   const state = getState();
@@ -213,7 +235,7 @@ app.post("/api/problems/bulk", async (req, res) => {
   res.status(created.length ? 201 : 400).json({ created, errors });
 });
 
-app.put("/api/problems/:id", async (req, res) => {
+app.put("/api/problems/:id", requireTeacherAuth, async (req, res) => {
   const state = getState();
   const problem = state.problems.find((p) => p.id === req.params.id);
   if (!problem) return res.status(404).json({ error: "문제를 찾을 수 없습니다." });
@@ -233,7 +255,7 @@ app.put("/api/problems/:id", async (req, res) => {
   res.json(problem);
 });
 
-app.delete("/api/problems/:id", async (req, res) => {
+app.delete("/api/problems/:id", requireTeacherAuth, async (req, res) => {
   const state = getState();
   state.problems = state.problems.filter((p) => p.id !== req.params.id);
   await setState(state);
@@ -444,7 +466,7 @@ app.post("/api/formative/answer", async (req, res) => {
 
 // ---------- Teacher dashboard ----------
 
-app.get("/api/teacher/students", (req, res) => {
+app.get("/api/teacher/students", requireTeacherAuth, (req, res) => {
   const { subjectId } = req.query;
   const state = getState();
 
@@ -477,7 +499,7 @@ app.get("/api/teacher/students", (req, res) => {
   res.json(rows);
 });
 
-app.post("/api/teacher/reset-student", async (req, res) => {
+app.post("/api/teacher/reset-student", requireTeacherAuth, async (req, res) => {
   const { studentId, subjectId } = req.body;
   if (!studentId || !subjectId) return res.status(400).json({ error: "studentId, subjectId가 필요합니다." });
   const state = getState();
