@@ -11,6 +11,7 @@ import {
   pointsForCorrectAnswer,
   LEVEL_UP_BONUS,
 } from "./scoring.js";
+import { seedIfEmpty } from "./seed.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -503,6 +504,9 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Adaptive quiz server listening on http://localhost:${PORT}`);
+seedIfEmpty().then((seeded) => {
+  if (seeded) console.log("Database was empty — seeded example 화학/수학 content.");
+  app.listen(PORT, () => {
+    console.log(`Adaptive quiz server listening on http://localhost:${PORT}`);
+  });
 });

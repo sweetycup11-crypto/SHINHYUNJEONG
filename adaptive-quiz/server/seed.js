@@ -1,7 +1,7 @@
 import { getState, setState, newId, resetAll } from "./db.js";
 import { subjectsSeed } from "./seedContent.js";
 
-async function seed() {
+export async function seedDatabase() {
   await resetAll();
   const state = getState();
   const now = new Date().toISOString();
@@ -44,4 +44,17 @@ async function seed() {
   console.log(`Seeded ${state.subjects.length} subjects and ${state.problems.length} problems.`);
 }
 
-seed();
+// Only seed when the database is completely empty (fresh disk / first boot).
+// Safe to call on every server start: never overwrites existing subjects,
+// problems, or student progress.
+export async function seedIfEmpty() {
+  const state = getState();
+  if (state.subjects.length > 0) return false;
+  await seedDatabase();
+  return true;
+}
+
+// Allow `node seed.js` to keep working as a manual, explicit reset+reseed.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  seedDatabase();
+}
