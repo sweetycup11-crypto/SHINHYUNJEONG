@@ -93,6 +93,7 @@ export default function Diagnostic({ session, onComplete }) {
       </div>
 
       <h3>{q.stem}</h3>
+      {q.image && <img src={q.image} alt="문제 이미지" className="problem-image" />}
       <div className="choice-list">
         {q.choices.map((choice, i) => (
           <div

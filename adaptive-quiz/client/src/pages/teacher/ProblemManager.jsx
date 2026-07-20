@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api.js";
 import { downloadProblemTemplate, downloadProblemsExport, parseProblemExcel } from "../../excelProblems.js";
+import { readAndResizeImage } from "../../imageUpload.js";
 
 const LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -15,6 +16,7 @@ function emptyForm(type, level) {
     answerIndex: 0,
     explanation: "",
     hints: [],
+    image: null,
   };
 }
 
@@ -47,6 +49,8 @@ export default function ProblemManager() {
   const [excelBusy, setExcelBusy] = useState(false);
   const [excelResult, setExcelResult] = useState(null);
   const [excelInputKey, setExcelInputKey] = useState(0);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageInputKey, setImageInputKey] = useState(0);
 
   useEffect(() => {
     api.listSubjects().then((list) => {
@@ -82,6 +86,7 @@ export default function ProblemManager() {
       answerIndex: p.answerIndex,
       explanation: p.explanation || "",
       hints: [...(p.hints || [])],
+      image: p.image || null,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -141,6 +146,7 @@ export default function ProblemManager() {
       answerIndex: Number(form.answerIndex),
       explanation: form.explanation.trim(),
       hints: form.hints.map((h) => h.trim()).filter(Boolean),
+      image: form.image || null,
     };
     try {
       if (form.id) {
@@ -154,6 +160,22 @@ export default function ProblemManager() {
       setError(e.message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleImageFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageBusy(true);
+    setError("");
+    try {
+      const dataUrl = await readAndResizeImage(file);
+      setForm((f) => ({ ...f, image: dataUrl }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImageBusy(false);
+      setImageInputKey((k) => k + 1);
     }
   }
 
@@ -355,6 +377,39 @@ export default function ProblemManager() {
                   required
                   style={{ fontFamily: "inherit" }}
                 />
+              </div>
+
+              <div>
+                <label>이미지 (선택)</label>
+                <div className="row">
+                  <label className="btn secondary sm" style={{ cursor: "pointer" }}>
+                    {imageBusy ? "처리 중..." : form.image ? "이미지 바꾸기" : "이미지 선택"}
+                    <input
+                      key={imageInputKey}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageFile}
+                      disabled={imageBusy}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {form.image && (
+                    <button
+                      type="button"
+                      className="btn danger sm"
+                      onClick={() => setForm((f) => ({ ...f, image: null }))}
+                    >
+                      이미지 제거
+                    </button>
+                  )}
+                </div>
+                {form.image && (
+                  <img
+                    src={form.image}
+                    alt="문제 이미지 미리보기"
+                    style={{ maxWidth: 240, maxHeight: 240, marginTop: 10, borderRadius: 8, border: "1px solid var(--border)" }}
+                  />
+                )}
               </div>
 
               <div>
@@ -597,6 +652,13 @@ export default function ProblemManager() {
                     </div>
                   </div>
                   <p style={{ marginTop: 8, fontWeight: 600 }}>{p.stem}</p>
+                  {p.image && (
+                    <img
+                      src={p.image}
+                      alt="문제 이미지"
+                      style={{ maxWidth: 160, maxHeight: 160, borderRadius: 8, border: "1px solid var(--border)", marginBottom: 8 }}
+                    />
+                  )}
                   <ul className="muted" style={{ margin: 0, paddingLeft: 20 }}>
                     {p.choices.map((c, i) => (
                       <li key={i} style={{ color: i === p.answerIndex ? "var(--good)" : undefined }}>

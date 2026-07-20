@@ -16,7 +16,12 @@ import { seedIfEmpty } from "./seed.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Raised from Express's 100kb default so problem images (stored inline as
+// base64 data URIs) fit in the request body. Client-side resizing keeps
+// individual images well under this.
+app.use(express.json({ limit: "8mb" }));
+
+const MAX_IMAGE_DATA_URI_LENGTH = 4_000_000; // ~3MB of binary image data once base64-decoded
 
 const PORT = process.env.PORT || 4000;
 
@@ -54,7 +59,7 @@ function pickRandom(arr, n) {
 }
 
 function publicProblem(p) {
-  return { id: p.id, level: p.level, stem: p.stem, choices: p.choices };
+  return { id: p.id, level: p.level, stem: p.stem, choices: p.choices, image: p.image || null };
 }
 
 function findOrCreateStudent(state, name) {
@@ -163,7 +168,7 @@ app.get("/api/problems", requireTeacherAuth, (req, res) => {
 });
 
 function validateProblemBody(body) {
-  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints, unit } = body;
+  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints, unit, image } = body;
   if (!subjectId || !type || !stem || !Array.isArray(choices) || choices.length < 4) {
     return "subjectId, type, stem, choices(4개 이상)는 필수입니다.";
   }
@@ -174,6 +179,14 @@ function validateProblemBody(body) {
   }
   if (hints && (!Array.isArray(hints) || hints.length > 2)) return "hints는 최대 2개의 배열이어야 합니다.";
   if (unit !== undefined && unit !== null && typeof unit !== "string") return "unit은 문자열이어야 합니다.";
+  if (image !== undefined && image !== null) {
+    if (typeof image !== "string" || !image.startsWith("data:image/")) {
+      return "image는 올바른 이미지 데이터여야 합니다.";
+    }
+    if (image.length > MAX_IMAGE_DATA_URI_LENGTH) {
+      return "이미지 용량이 너무 큽니다. 더 작은 이미지를 사용해주세요.";
+    }
+  }
   return null;
 }
 
@@ -181,7 +194,7 @@ app.post("/api/problems", requireTeacherAuth, async (req, res) => {
   const error = validateProblemBody(req.body);
   if (error) return res.status(400).json({ error });
   const state = getState();
-  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints, unit } = req.body;
+  const { subjectId, type, level, stem, choices, answerIndex, explanation, hints, unit, image } = req.body;
   if (!state.subjects.find((s) => s.id === subjectId)) {
     return res.status(400).json({ error: "존재하지 않는 과목입니다." });
   }
@@ -196,6 +209,7 @@ app.post("/api/problems", requireTeacherAuth, async (req, res) => {
     explanation: explanation || "",
     hints: hints || [],
     unit: unit || "",
+    image: image || null,
     createdAt: new Date().toISOString(),
   };
   state.problems.push(problem);
@@ -230,6 +244,7 @@ app.post("/api/problems/bulk", requireTeacherAuth, async (req, res) => {
       explanation: p.explanation || "",
       hints: p.hints || [],
       unit: p.unit || "",
+      image: p.image || null,
       createdAt: new Date().toISOString(),
     };
     state.problems.push(problem);
@@ -255,6 +270,7 @@ app.put("/api/problems/:id", requireTeacherAuth, async (req, res) => {
     explanation: merged.explanation || "",
     hints: merged.hints || [],
     unit: merged.unit || "",
+    image: merged.image || null,
   });
   await setState(state);
   res.json(problem);
