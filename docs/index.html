@@ -162,6 +162,15 @@
       icon: "🧪",
       href: "titration.html",
     },
+    {
+      id: "spontaneity",
+      unit: "5단원",
+      title: "화학 변화의 자발성",
+      desc: "엔탈피·엔트로피 시뮬레이션으로 반응의 자발성을 탐구하는 학습 자료",
+      icon: "🌡️",
+      href: "spontaneity.html",
+      isStudy: true,
+    },
   ];
 
   const nickInput = document.getElementById("nickInput");
@@ -185,7 +194,7 @@
         <span class="unit-badge">${g.unit}</span>
         <span class="title">${g.title}</span>
         <span class="desc">${g.desc}</span>
-        <span class="champ">${record ? `🏆 최고 기록 <b>${escapeHtml(record.name)}</b> · ${record.score}점` : "아직 기록 없음"}</span>
+        <span class="champ">${g.isStudy ? "📖 학습 자료" : record ? `🏆 최고 기록 <b>${escapeHtml(record.name)}</b> · ${record.score}점` : "아직 기록 없음"}</span>
       `;
       gameGrid.appendChild(card);
     });

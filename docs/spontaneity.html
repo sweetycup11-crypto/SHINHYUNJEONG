@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>화학 변화의 자발성 인터랙티브 학습 자료</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Pretendard', sans-serif;
+      margin: 0; padding: 20px;
+      background-color: #f4f6f9;
+      color: #333;
+    }
+    h1 { text-align: center; color: #1a365d; margin-bottom: 8px; }
+
+    .home-link {
+      display: block; text-align: center; margin-bottom: 20px;
+    }
+    .home-link a {
+      display: inline-block; padding: 8px 20px; font-size: 14px; font-weight: bold;
+      color: #3182ce; background: white; border: 1px solid #cbd5e0; border-radius: 999px;
+      text-decoration: none; transition: 0.2s;
+    }
+    .home-link a:hover { background-color: #ebf8ff; border-color: #3182ce; }
+
+    /* 탭 스타일 */
+    .tab-container {
+      display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 12px 24px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 8px; background-color: #e2e8f0;
+      cursor: pointer; transition: 0.3s;
+    }
+    .tab-btn.active {
+      background-color: #3182ce; color: white;
+    }
+
+    /* 섹션 스타일 */
+    .section-content {
+      display: none; max-width: 900px; margin: 0 auto;
+      background: white; padding: 25px; border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .section-content.active { display: block; }
+
+    /* 공통 인터랙티브 박스 */
+    .control-panel {
+      display: flex; gap: 10px; justify-content: center; margin: 15px 0; flex-wrap: wrap;
+    }
+    button.action-btn {
+      padding: 10px 18px; font-size: 15px; border: none; border-radius: 6px;
+      cursor: pointer; background-color: #4a5568; color: white; font-weight: bold;
+    }
+    button.action-btn:hover { background-color: #2d3748; }
+
+    /* 1. 엔탈피 캔버스/차트 */
+    .enthalpy-display {
+      display: flex; flex-direction: column; align-items: center; gap: 15px;
+    }
+    .thermometer-container {
+      width: 100%; height: 250px; display: flex; justify-content: space-around; align-items: flex-end;
+      background: #edf2f7; border-radius: 8px; padding: 20px; position: relative;
+    }
+    .reaction-box {
+      width: 40%; height: 180px; border: 2px dashed #cbd5e0; border-radius: 8px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      transition: background-color 0.5s; position: relative;
+    }
+    .temp-gauge {
+      width: 30px; height: 150px; background: #e2e8f0; border-radius: 15px;
+      position: relative; overflow: hidden; border: 2px solid #a0aec0;
+    }
+    .temp-fill {
+      width: 100%; height: 50%; background: #e53e3e; position: absolute; bottom: 0;
+      transition: height 0.5s, background-color 0.5s;
+    }
+    .info-box {
+      font-size: 15px; line-height: 1.6; background: #ebf8ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3182ce; width: 100%;
+    }
+
+    /* 2. 엔트로피 캔버스 */
+    #particleCanvas {
+      width: 100%; height: 300px; background-color: #1a202c; border-radius: 8px; display: block;
+    }
+
+    /* 3. 반응의 자발성 테이블 */
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 15px; text-align: center;
+    }
+    th, td { border: 1px solid #cbd5e0; padding: 12px; }
+    th { background-color: #edf2f7; }
+    .spontaneous { background-color: #c6f6d5; font-weight: bold; color: #22543d; }
+    .non-spontaneous { background-color: #fed7d7; font-weight: bold; color: #742a2a; }
+    .conditional { background-color: #feebc8; font-weight: bold; color: #744210; }
+  </style>
+</head>
+<body>
+
+  <h1>🧪 화학 변화의 자발성 학습 프로그램</h1>
+  <div class="home-link"><a href="index.html">🏠 홈으로</a></div>
+
+  <div class="tab-container">
+    <button class="tab-btn active" onclick="switchTab(1)">1. 엔탈피 (흡열/발열)</button>
+    <button class="tab-btn" onclick="switchTab(2)">2. 엔트로피 (무질서도)</button>
+    <button class="tab-btn" onclick="switchTab(3)">3. 반응의 자발성</button>
+  </div>
+
+  <!-- 1. 엔탈피 섹션 -->
+  <div id="tab1" class="section-content active">
+    <h2>1. 반응 엔탈피 (ΔH) 조작 실험</h2>
+    <p>아래 버튼을 눌러 반응 종류를 선택하고 주변 온도 변화와 열의 출입을 확인해보세요.</p>
+
+    <div class="control-panel">
+      <button class="action-btn" onclick="setExothermic()">발열 반응 시뮬레이션 (손난로 등)</button>
+      <button class="action-btn" onclick="setEndothermic()">흡열 반응 시뮬레이션 (냉각팩 등)</button>
+    </div>
+
+    <div class="enthalpy-display">
+      <div class="thermometer-container">
+        <div class="reaction-box" id="reactionBox">
+          <span id="reactionTitle" style="font-weight: bold; font-size: 18px;">반응 선택 전</span>
+          <span id="heatArrow" style="font-size: 24px; margin: 10px 0;"></span>
+          <span id="enthalpyText">엔탈피 변화(ΔH) 확인</span>
+        </div>
+        <div style="text-align: center;">
+          <div class="temp-gauge">
+            <div class="temp-fill" id="tempFill"></div>
+          </div>
+          <span style="display: block; margin-top: 5px; font-weight: bold;" id="tempText">주변 온도: 25°C</span>
+        </div>
+      </div>
+
+      <div class="info-box" id="enthalpyInfo">
+        버튼을 클릭하여 발열 반응과 흡열 반응 시 엔탈피(ΔH)의 부호 및 주변 온도의 변화를 관찰하세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 엔트로피 섹션 -->
+  <div id="tab2" class="section-content">
+    <h2>2. 엔트로피 (ΔS, 무질서도) 조작 시뮬레이션</h2>
+    <p>입자의 상태를 직접 조작하여 무질서도(엔트로피)의 증가 및 감소를 확인해보세요.</p>
+
+    <div class="control-panel">
+      <button class="action-btn" onclick="setSolidState()">고체 상태 (질서정연, S 작음)</button>
+      <button class="action-btn" onclick="setGasState()">기체/확산 상태 (무질서, S 큼)</button>
+      <button class="action-btn" onclick="toggleBarrier()">중앙 막 열기/닫기 (자발적 확산)</button>
+    </div>
+
+    <canvas id="particleCanvas"></canvas>
+
+    <div class="info-box" id="entropyInfo" style="margin-top: 15px;">
+      입자들의 위치와 움직임을 통해 엔트로피(무질서도)가 언제 증가하고 감소하는지 관찰해보세요.
+    </div>
+  </div>
+
+  <!-- 3. 반응의 자발성 섹션 -->
+  <div id="tab3" class="section-content">
+    <h2>3. 엔탈피, 엔트로피와 반응의 자발성</h2>
+    <p>엔탈피 변화(ΔH)와 엔트로피 변화(ΔS)의 조건에 따라 반응이 자발적으로 일어나는지 정리해봅시다.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>엔탈피 변화 (ΔH)</th>
+          <th>엔트로피 변화 (ΔS)</th>
+          <th>자발성 여부</th>
+          <th>설명 및 대표 예시</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>감소 (ΔH < 0)</b><br>발열 반응</td>
+          <td><b>증가 (ΔS > 0)</b><br>무질서도 증가</td>
+          <td class="spontaneous">항상 자발적</td>
+          <td>하이드라진과 산소의 반응 (로켓 연료)</td>
+        </tr>
+        <tr>
+          <td><b>증가 (ΔH > 0)</b><br>흡열 반응</td>
+          <td><b>감소 (ΔS < 0)</b><br>무질서도 감소</td>
+          <td class="non-spontaneous">항상 비자발적</td>
+          <td>역반응 (스스로 일어날 수 없음)</td>
+        </tr>
+        <tr>
+          <td><b>감소 (ΔH < 0)</b><br>발열 반응</td>
+          <td><b>감소 (ΔS < 0)</b><br>무질서도 감소</td>
+          <td class="conditional">온도에 따라 다름<br>(낮은 온도에서 자발적)</td>
+          <td>철의 산화(손난로), 수소와 산소의 반응 (연료전지)</td>
+        </tr>
+        <tr>
+          <td><b>증가 (ΔH > 0)</b><br>흡열 반응</td>
+          <td><b>증가 (ΔS > 0)</b><br>무질서도 증가</td>
+          <td class="conditional">온도에 따라 다름<br>(높은 온도에서 자발적)</td>
+          <td>얼음의 융해, 물의 기화</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box" style="margin-top: 20px;">
+      💡 <b>핵심 요약:</b><br>
+      - 일반적으로 <b>에너지가 낮아지는 방향(ΔH < 0)</b>과 <b>무질서도가 커지는 방향(ΔS > 0)</b>으로 변화가 자발적으로 일어납니다.<br>
+      - 엔탈피 감소 효과가 엔트로피 감소 효과보다 큰 경우(예: 철의 산화) 엔트로피가 감소하더라도 자발적으로 반응이 일어날 수 있습니다.
+    </div>
+  </div>
+
+  <script>
+    // 탭 전환 함수
+    function switchTab(index) {
+      document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', i === index - 1);
+      });
+      document.querySelectorAll('.section-content').forEach((content, i) => {
+        content.classList.toggle('active', i === index - 1);
+      });
+      if(index === 2) initCanvas();
+    }
+
+    // --- 1. 엔탈피 조작 관련 스크립트 ---
+    function setExothermic() {
+      const box = document.getElementById('reactionBox');
+      const fill = document.getElementById('tempFill');
+      const tempText = document.getElementById('tempText');
+      const title = document.getElementById('reactionTitle');
+      const arrow = document.getElementById('heatArrow');
+      const enthalpyText = document.getElementById('enthalpyText');
+      const info = document.getElementById('enthalpyInfo');
+
+      box.style.backgroundColor = '#fff5f5';
+      fill.style.height = '85%';
+      fill.style.backgroundColor = '#e53e3e';
+      tempText.innerText = '주변 온도: 상승 ↑';
+      title.innerText = '발열 반응';
+      arrow.innerText = '🔥 열 방출 ➡';
+      arrow.style.color = '#e53e3e';
+      enthalpyText.innerText = '생성물 엔탈피 < 반응물 엔탈피 (ΔH < 0)';
+      info.innerHTML = '<b>[발열 반응]</b> 반응물보다 생성물의 엔탈피가 낮아 <b>차이만큼 열을 방출</b>합니다.<br>주변의 온도가 올라갑니다. (예: 손난로, 메테인의 연소)';
+    }
+
+    function setEndothermic() {
+      const box = document.getElementById('reactionBox');
+      const fill = document.getElementById('tempFill');
+      const tempText = document.getElementById('tempText');
+      const title = document.getElementById('reactionTitle');
+      const arrow = document.getElementById('heatArrow');
+      const enthalpyText = document.getElementById('enthalpyText');
+      const info = document.getElementById('enthalpyInfo');
+
+      box.style.backgroundColor = '#ebf8ff';
+      fill.style.height = '20%';
+      fill.style.backgroundColor = '#3182ce';
+      tempText.innerText = '주변 온도: 하강 ↓';
+      title.innerText = '흡열 반응';
+      arrow.innerText = '❄️ 열 흡수 ⬅';
+      arrow.style.color = '#3182ce';
+      enthalpyText.innerText = '생성물 엔탈피 > 반응물 엔탈피 (ΔH > 0)';
+      info.innerHTML = '<b>[흡열 반응]</b> 반응물보다 생성물의 엔탈피가 높아 <b>차이만큼 열을 흡수</b>합니다.<br>주변의 온도가 내려갑니다. (예: 냉각팩, 질산 암모늄 용해)';
+    }
+
+    // --- 2. 엔트로피 조작 관련 스크립트 (Canvas) ---
+    let canvas, ctx, animationId;
+    let particles = [];
+    let barrier = false;
+
+    class Particle {
+      constructor(x, y, vx, vy) {
+        this.x = x; this.y = y;
+        this.vx = vx; this.vy = vy;
+        this.radius = 6;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) this.vx *= -1;
+        if (this.y - this.radius < 0 || this.y + this.radius > canvas.height) this.vy *= -1;
+
+        // 중앙 막 충돌 처리
+        if (barrier) {
+          if (this.x + this.radius > canvas.width / 2 && this.x - this.radius < canvas.width / 2) {
+            this.vx *= -1;
+          }
+        }
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#63b3ed';
+        ctx.fill();
+        ctx.closePath();
+      }
+    }
+
+    function initCanvas() {
+      canvas = document.getElementById('particleCanvas');
+      ctx = canvas.getContext('2d');
+      canvas.width = canvas.parentElement.clientWidth - 50;
+      canvas.height = 300;
+      setSolidState();
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 막 그리기
+      if (barrier) {
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+
+      animationId = requestAnimationFrame(animate);
+    }
+
+    function setSolidState() {
+      cancelAnimationFrame(animationId);
+      particles = [];
+      barrier = false;
+      const rows = 5, cols = 8;
+      const startX = canvas.width / 2 - 80;
+      const startY = canvas.height / 2 - 50;
+
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+          particles.push(new Particle(
+            startX + j * 20,
+            startY + i * 20,
+            (Math.random() - 0.5) * 0.5,
+            (Math.random() - 0.5) * 0.5
+          ));
+        }
+      }
+      document.getElementById('entropyInfo').innerHTML = '<b>[고체 상태]</b> 입자들이 규칙적으로 정렬되어 진동 운동만 하고 있습니다. ➡ <b>무질서도가 낮음 (엔트로피 낮음, ΔS < 0 조건)</b>';
+      animate();
+    }
+
+    function setGasState() {
+      cancelAnimationFrame(animationId);
+      particles = [];
+      barrier = false;
+      for (let i = 0; i < 40; i++) {
+        particles.push(new Particle(
+          Math.random() * canvas.width,
+          Math.random() * canvas.height,
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 4
+        ));
+      }
+      document.getElementById('entropyInfo').innerHTML = '<b>[기체/확산 상태]</b> 입자들이 넓은 공간으로 불규칙하고 자유롭게 운동합니다. ➡ <b>무질서도가 높음 (엔트로피 증가, ΔS > 0)</b>';
+      animate();
+    }
+
+    function toggleBarrier() {
+      cancelAnimationFrame(animationId);
+      particles = [];
+      barrier = true;
+
+      // 왼쪽에만 입자 배치
+      for (let i = 0; i < 30; i++) {
+        particles.push(new Particle(
+          Math.random() * (canvas.width / 2 - 20) + 10,
+          Math.random() * (canvas.height - 20) + 10,
+          (Math.random() - 0.5) * 3,
+          (Math.random() - 0.5) * 3
+        ));
+      }
+
+      document.getElementById('entropyInfo').innerHTML = '<b>[기체 확산 실습]</b> 중앙 막이 막혀있을 때는 한쪽에 모여있다(질서함)가, 막을 열면 넓은 공간으로 퍼져나가는 <b>자발적 변화(엔트로피 증가)</b>가 일어납니다. 버튼을 다시 눌러 퍼져나가게 해보세요!';
+
+      setTimeout(() => { barrier = false; }, 2000); // 2초 후 자동으로 막이 열림
+      animate();
+    }
+  </script>
+</body>
+</html>
