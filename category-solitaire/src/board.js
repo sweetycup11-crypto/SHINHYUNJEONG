@@ -29,12 +29,12 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
         <div class="hud-item"><span class="hud-label">이동</span><b id="hud-moves">0</b></div>
         <button class="hud-quit" id="btn-quit" type="button">그만하기</button>
       </header>
-      <section class="slots" id="slots" aria-label="카테고리 칸"></section>
       <section class="stock-row">
         <button class="pile stock" id="stock" type="button" aria-label="카드 더미 넘기기"></button>
         <div class="pile waste" id="waste"></div>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </section>
+      <section class="slots" id="slots" aria-label="카테고리 칸"></section>
       <section class="tableau" id="tableau"></section>
     </div>`;
 
