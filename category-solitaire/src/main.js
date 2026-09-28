@@ -3,7 +3,8 @@
 //        ③단계에서 공유 데이터 저장소로, ④단계에서 수업 코드 입장으로 바뀝니다.
 import './style.css';
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler } from 'chart.js';
-import { SAMPLE_SET } from './sample-set.js';
+import { listSets } from './set-store.js';
+import { showSetManager } from './teacher-sets.js';
 import { DEFAULT_SETTINGS, THEMES, mergeSettings } from './settings.js';
 import { categoriesOf } from './game.js';
 import { startGame, esc } from './board.js';
@@ -11,7 +12,6 @@ import { startGame, esc } from './board.js';
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler);
 
 const app = document.getElementById('app');
-const sets = [SAMPLE_SET];
 let settings = mergeSettings(loadLocal('cs-test-settings', {}));
 applyTheme();
 
@@ -31,6 +31,7 @@ function applyTheme() {
 // ---------- 시작 화면 ----------
 
 function showHome() {
+  const sets = listSets();
   app.innerHTML = `
     <main class="page">
       <h1 class="title">카테고리 솔리테어</h1>
@@ -61,6 +62,8 @@ function showHome() {
         </ol>
       </details>
 
+      <button type="button" class="btn ghost full teacher-link" id="btn-teacher">교사: 게임 세트 관리 (엑셀 업로드)</button>
+
       <details class="test-settings">
         <summary>테스트용 설정 <small>(④단계에서 교사 설정 화면으로 옮겨져요)</small></summary>
         <form id="settings-form" class="settings-grid">
@@ -81,7 +84,8 @@ function showHome() {
     </main>`;
 
   app.querySelectorAll('[data-set]').forEach((btn) =>
-    btn.addEventListener('click', () => play(sets[+btn.dataset.set])));
+    btn.addEventListener('click', () => play(sets[+btn.dataset.set], showHome)));
+  app.querySelector('#btn-teacher').addEventListener('click', showTeacher);
 
   const form = app.querySelector('#settings-form');
   form.addEventListener('change', () => {
@@ -109,17 +113,23 @@ function showHome() {
 
 // ---------- 게임 ----------
 
-function play(set) {
+// back: 게임을 그만두거나 결과 화면에서 돌아갈 화면
+function play(set, back) {
   window.scrollTo(0, 0);
   startGame(app, set, settings, {
-    onEnd: (result) => showResult(set, result),
-    onQuit: showHome,
+    onEnd: (result) => showResult(set, result, back),
+    onQuit: back,
   });
+}
+
+function showTeacher() {
+  window.scrollTo(0, 0);
+  showSetManager(app, { onPlay: (set) => play(set, showTeacher), onBack: showHome });
 }
 
 // ---------- 결과 화면 ----------
 
-function showResult(set, result) {
+function showResult(set, result, back) {
   const key = 'cs-history:' + set.name;
   const history = loadLocal(key, []);
   history.push({ score: result.score.total, at: Date.now() });
@@ -176,13 +186,13 @@ function showResult(set, result) {
 
       <div class="actions">
         <button type="button" class="btn" id="btn-again">다시 하기</button>
-        <button type="button" class="btn ghost" id="btn-home">세트 고르기</button>
+        <button type="button" class="btn ghost" id="btn-home">${back === showTeacher ? '세트 관리로' : '세트 고르기'}</button>
       </div>
     </main>`;
 
   drawHistory(app.querySelector('#history-chart'), history);
-  app.querySelector('#btn-again').addEventListener('click', () => play(set));
-  app.querySelector('#btn-home').addEventListener('click', showHome);
+  app.querySelector('#btn-again').addEventListener('click', () => play(set, back));
+  app.querySelector('#btn-home').addEventListener('click', back);
   window.scrollTo(0, 0);
 }
 

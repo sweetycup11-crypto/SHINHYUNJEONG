@@ -217,3 +217,56 @@ summary small { font-weight: 400; color: var(--ink-dim); }
   .card-text { font-size: 1.15rem; }
   .slot { min-height: 92px; }
 }
+
+/* ===== 교사: 세트 관리 ===== */
+.teacher-link { margin-top: 16px; }
+.back-link { border: none; background: none; color: var(--accent); font-weight: 700; padding: 8px 0; cursor: pointer; min-height: 44px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 16px; }
+.panel-title { font-size: 1.05rem; margin: 0 0 12px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.btn-row .btn { flex: 1 1 160px; }
+.btn.full { width: 100%; margin-top: 12px; }
+.btn.small { min-height: 40px; padding: 0 12px; font-size: .88rem; }
+.btn.danger { background: var(--bad-soft); color: var(--bad); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.format-table, .cat-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.format-table th, .format-table td, .cat-table th, .cat-table td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.format-table th, .cat-table th { background: var(--panel-2); font-weight: 700; }
+.format-table .dim td { color: var(--ink-dim); }
+.cat-table { margin-top: 10px; }
+.cat-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cat-table .warn-row td { background: var(--gold-soft); }
+.tips { margin: 12px 0 0; padding-left: 20px; line-height: 1.7; font-size: .92rem; }
+.dropzone {
+  display: grid; gap: 4px; place-items: center; text-align: center; padding: 28px 16px; cursor: pointer;
+  border: 2px dashed var(--accent); border-radius: 14px; background: var(--panel-2); color: var(--ink-dim);
+}
+.dropzone b { color: var(--accent); }
+.dropzone.over { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.form-error { color: var(--bad); font-weight: 600; margin: 8px 0 0; min-height: 1em; }
+.preview-summary { margin: 12px 0; }
+.text-bad { color: var(--bad); }
+.text-warn { color: var(--gold); font-weight: 600; }
+.sheet-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-top: 10px; overflow-x: auto; }
+.sheet-card.has-error { border-color: var(--bad); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sheet-head .check { display: flex; align-items: center; gap: 8px; }
+.sheet-head input { width: 22px; height: 22px; accent-color: var(--accent); }
+.sheet-meta { margin: 6px 0 0; font-size: .88rem; color: var(--ink-dim); }
+.badge { flex: none; padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--gold-soft); color: var(--gold); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.msg-list { margin: 8px 0 0; padding: 8px 8px 8px 26px; border-radius: 8px; font-size: .88rem; line-height: 1.6; }
+.msg-list.bad { background: var(--bad-soft); color: var(--bad); }
+.msg-list.warn { background: var(--gold-soft); color: var(--gold); }
+.sheet-card .btn { margin-top: 10px; }
+.saved-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.saved-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.saved-info { display: grid; gap: 2px; min-width: 0; }
+.saved-info span { color: var(--ink-dim); font-size: .85rem; }
+.saved-actions { display: flex; gap: 6px; }
+.format-table th, .format-table td:not(:last-child),
+.cat-table th, .cat-table td:first-child { white-space: nowrap; }
+.cat-table td:last-child, .format-table td:last-child { overflow-wrap: anywhere; }
+body { word-break: keep-all; }
