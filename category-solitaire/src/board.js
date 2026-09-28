@@ -56,20 +56,23 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
     </div>`;
   }
 
+  // 카테고리 칸: 한 줄에 최대 4개. 올려놓은 카드는 사라지지 않고 아래로 겹쳐 쌓인다
   function renderSlots() {
-    slotsEl.style.setProperty('--rows', state.slots.length > 3 ? 2 : 1);
+    slotsEl.style.setProperty('--slot-cols', Math.min(4, state.slots.length));
     slotsEl.innerHTML = state.slots.map((slot, i) => {
       if (!slot.category) {
         return `<button type="button" class="slot empty" data-slot="${i}">
-          <span class="slot-name">빈 칸</span><span class="slot-sub">카테고리 카드를 놓아요</span></button>`;
+          <span class="slot-empty-name">빈 칸</span><span class="slot-sub">★ 카드 놓기</span></button>`;
       }
       const total = state.totalByCategory[slot.category];
       const done = slot.placed.length === total;
-      const last = slot.placed.length ? state.cards[slot.placed[slot.placed.length - 1]].text : '';
+      const pile = slot.placed.map((id) => `<span class="mini-card"><span class="mini-text fit">${esc(state.cards[id].text)}</span></span>`).join('');
       return `<button type="button" class="slot ${done ? 'complete' : ''}" data-slot="${i}">
-        <span class="slot-name fit">${esc(slot.category)}</span>
-        <span class="slot-count">${done ? '✔ 완성' : `${slot.placed.length} / ${total}`}</span>
-        <span class="slot-last fit">${esc(last)}</span></button>`;
+        <span class="slot-head">
+          <span class="slot-name fit">${esc(slot.category)}</span>
+          <span class="slot-count">${done ? '✔ 완성' : `${slot.placed.length}/${total}`}</span>
+        </span>
+        <span class="slot-pile">${pile}</span></button>`;
     }).join('');
   }
 

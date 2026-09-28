@@ -125,25 +125,35 @@ summary small { font-weight: 400; color: var(--ink-dim); }
 .hud-item b.warn { color: var(--bad); }
 .hud-quit { border: 1px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 0 12px; min-height: 40px; cursor: pointer; font-size: .85rem; }
 
-/* 카테고리 칸: 4개 이상이면 2줄, 넘치면 가로 스크롤 */
+/* 카테고리 칸: 한 줄에 최대 4개, 더 많으면 다음 줄로 */
 .slots {
-  display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--rows, 1), auto);
-  grid-auto-columns: minmax(104px, 1fr); gap: 8px;
-  overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity;
+  display: grid; grid-template-columns: repeat(var(--slot-cols, 4), minmax(0, 1fr));
+  gap: 6px; align-items: start; padding: 2px;
 }
 .slot {
-  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  min-height: 84px; padding: 8px 6px; border-radius: 14px; cursor: pointer; scroll-snap-align: start;
-  background: var(--panel); border: 2px solid var(--accent); box-shadow: var(--shadow); overflow: hidden;
+  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  min-height: 96px; padding: 3px; border-radius: 12px; cursor: pointer; text-align: center;
+  background: var(--panel); border: 2px solid var(--gold); box-shadow: var(--shadow); overflow: hidden;
 }
-.slot-name { font-weight: 800; font-size: .98rem; width: 100%; text-align: center; white-space: nowrap; overflow: hidden; }
-.slot-count { font-size: .8rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
-.slot-last { font-size: .78rem; color: var(--accent); width: 100%; text-align: center; white-space: nowrap; overflow: hidden; min-height: 1em; }
-.slot.empty { border: 2px dashed var(--line); background: var(--panel-2); box-shadow: none; }
-.slot.empty .slot-name { color: var(--ink-dim); }
-.slot-sub { font-size: .7rem; color: var(--ink-dim); text-align: center; }
-.slot.complete { border-color: var(--ok); background: var(--ok-soft); }
-.slot.complete .slot-count { color: var(--ok); font-weight: 800; }
+/* 칸 맨 위: 놓인 카테고리 카드 */
+.slot-head { display: flex; flex-direction: column; align-items: center; padding: 4px 2px; border-radius: 8px; background: var(--gold-soft); }
+.slot-name { display: block; width: 100%; font-weight: 800; font-size: .9rem; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot-count { font-size: .72rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+/* 올려놓은 단어 카드: 위쪽 글자 줄만 보이게 겹쳐 쌓고, 마지막 카드는 전체가 보인다 */
+.slot-pile { display: flex; flex-direction: column; }
+.mini-card {
+  display: block; height: 34px; padding: 3px 2px 0; margin-top: -14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  box-shadow: 0 -1px 3px rgba(20, 30, 50, .10);
+}
+.mini-card:first-child { margin-top: 0; }
+.mini-text { display: block; width: 100%; font-size: .78rem; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot.empty { justify-content: center; align-items: center; border: 2px dashed var(--line); background: var(--panel-2); box-shadow: none; }
+.slot-empty-name { font-weight: 800; color: var(--ink-dim); font-size: .95rem; }
+.slot-sub { font-size: .7rem; color: var(--ink-dim); }
+.slot.complete { border-color: var(--ok); }
+.slot.complete .slot-head { background: var(--ok-soft); }
+.slot.complete .slot-name, .slot.complete .slot-count { color: var(--ok); font-weight: 800; }
 .has-selection .slot:not(.complete) { outline: 3px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 .slot.drop-over, .col.drop-over { outline: 3px solid var(--accent) !important; outline-offset: 2px; }
 
@@ -215,7 +225,6 @@ summary small { font-weight: 400; color: var(--ink-dim); }
 /* 넓은 화면(태블릿 가로·PC)에서는 카드를 조금 작게 */
 @media (min-width: 700px) {
   .card-text { font-size: 1.15rem; }
-  .slot { min-height: 92px; }
 }
 
 /* ===== 교사: 세트 관리 ===== */
