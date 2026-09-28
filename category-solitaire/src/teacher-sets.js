@@ -1,20 +1,30 @@
 // 교사 화면: 게임 세트 관리 (엑셀 업로드 → 미리보기·오류 확인 → 저장)
 import { readWorkbook, downloadTemplate, downloadSets } from './excel.js';
-import { listSets, hasSet, saveSets, deleteSet } from './set-store.js';
+import { api } from './api.js';
 import { SAMPLE_SET } from './sample-set.js';
 import { esc } from './board.js';
 
-// app 안에 세트 관리 화면을 그린다. onPlay(set)로 미리 해 보기, onBack()으로 돌아가기
 // 업로드한 파일의 시트별 검사 결과 ("저장 전에 해 보기" 후 돌아와도 남아 있게 바깥에 둔다)
 let preview = null;
 
-export function showSetManager(app, { onPlay, onBack }) {
+// app(교사 화면의 본문 영역)에 세트 관리 화면을 그린다. onPlay(set)로 미리 해 보기
+export async function showSetManager(app, { onPlay }) {
+  let sets = [];
+
+  async function reload() {
+    app.innerHTML = '<p class="note">불러오는 중…</p>';
+    try {
+      sets = await api.listSets();
+    } catch (e) {
+      app.innerHTML = `<p class="form-error">${esc(e.message)}</p>`;
+      return;
+    }
+    render();
+  }
+
   function render() {
-    const sets = listSets();
+    const hasSample = sets.some((s) => s.name === SAMPLE_SET.name);
     app.innerHTML = `
-      <main class="page">
-        <button type="button" class="back-link" id="btn-back">← 처음으로</button>
-        <h1 class="title">게임 세트 관리</h1>
         <p class="lead">엑셀로 단어 카드 세트를 만들어요. 시트 하나가 게임 세트 하나예요.</p>
 
         <section class="panel">
@@ -55,21 +65,23 @@ export function showSetManager(app, { onPlay, onBack }) {
                 <div class="saved-info">
                   <b>${esc(s.name)}</b>
                   <span>카테고리 ${new Set(s.rows.map((r) => r.category)).size}개 · 단어 ${s.rows.length}개
-                  ${s.builtIn ? ' · 기본 샘플' : s.updatedAt ? ' · ' + new Date(s.updatedAt).toLocaleDateString('ko-KR') : ''}</span>
+                  ${s.updatedAt ? ' · ' + new Date(s.updatedAt).toLocaleDateString('ko-KR') : ''}</span>
                 </div>
                 <div class="saved-actions">
                   <button type="button" class="btn small" data-play="${i}">해 보기</button>
                   <button type="button" class="btn small ghost" data-download="${i}">엑셀</button>
-                  ${s.builtIn ? '' : `<button type="button" class="btn small danger" data-delete="${i}">삭제</button>`}
+                  <button type="button" class="btn small danger" data-delete="${i}">삭제</button>
                 </div>
               </li>`).join('')}
           </ul>
+          ${sets.length ? '' : '<p class="note">아직 세트가 없어요. 엑셀을 올리거나 샘플 세트를 추가해 보세요.</p>'}
+          ${hasSample ? '' : '<button type="button" class="btn ghost full" id="btn-add-sample">샘플 세트(고등 화학) 추가</button>'}
           ${sets.length > 1 ? '<button type="button" class="btn ghost full" id="btn-download-all">저장된 세트 모두 엑셀로 받기</button>' : ''}
-          <p class="note">②단계에서는 세트가 이 브라우저에만 저장돼요. ④단계부터 교사 계정에 저장됩니다.</p>
-        </section>
-      </main>`;
+          <p class="note">세트를 학생에게 보이려면 [수업] 탭에서 수업을 고른 뒤 [공개 세트]에서 선택하세요.</p>
+        </section>`;
 
-    app.querySelector('#btn-back').addEventListener('click', onBack);
+    app.querySelector('#btn-add-sample')?.addEventListener('click', () =>
+      runSave([{ name: SAMPLE_SET.name, rows: SAMPLE_SET.rows }]));
     app.querySelector('#btn-template').addEventListener('click', () => runDownload(downloadTemplate));
     app.querySelector('#btn-sample').addEventListener('click', () =>
       runDownload(() => downloadSets([SAMPLE_SET], '카테고리솔리테어_샘플세트.xlsx')));
@@ -97,10 +109,22 @@ export function showSetManager(app, { onPlay, onBack }) {
     }));
     app.querySelectorAll('[data-delete]').forEach((b) => b.addEventListener('click', () => {
       const s = sets[+b.dataset.delete];
-      if (confirm(`‘${s.name}’ 세트를 삭제할까요? 되돌릴 수 없어요.`)) { deleteSet(s.name); render(); }
+      if (!confirm(`‘${s.name}’ 세트를 삭제할까요?\n수업에 공개된 것도 함께 사라져요. 학생 기록은 남아요.`)) return;
+      api.deleteSet(s.id).then(reload, (e) => alert(e.message));
     }));
 
     renderPreview();
+  }
+
+  async function runSave(chosen) {
+    try {
+      await api.saveSets(chosen);
+    } catch (e) {
+      alert('저장하지 못했어요. ' + e.message);
+      return false;
+    }
+    await reload();
+    return true;
   }
 
   async function runDownload(fn) {
@@ -115,8 +139,7 @@ export function showSetManager(app, { onPlay, onBack }) {
     try {
       preview = await readWorkbook(file);
       for (const p of preview) {
-        if (p.name === SAMPLE_SET.name) p.errors.push('기본 샘플 세트와 이름이 같아요. 시트 이름을 바꿔 주세요.');
-        p.overwrite = !p.errors.length && hasSet(p.name);
+        p.overwrite = !p.errors.length && sets.some((s) => s.name === p.name);
         p.checked = !p.errors.length;
       }
     } catch (e) {
@@ -164,15 +187,21 @@ export function showSetManager(app, { onPlay, onBack }) {
       const p = preview[+b.dataset.try];
       onPlay({ name: p.name, rows: p.rows });
     }));
-    box.querySelector('#btn-save')?.addEventListener('click', () => {
+    box.querySelector('#btn-save')?.addEventListener('click', async (e) => {
       const chosen = preview.filter((p) => p.checked && !p.errors.length);
       if (!chosen.length) return alert('저장할 세트를 선택해 주세요.');
-      if (!saveSets(chosen)) return alert('저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.');
+      e.target.disabled = true;
+      e.target.textContent = '저장 중…';
+      const saved = preview;
       preview = null;
-      render();
-      app.querySelector('.saved-list').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (await runSave(chosen.map(({ name, rows }) => ({ name, rows })))) {
+        app.querySelector('.saved-list')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        preview = saved;
+        renderPreview();
+      }
     });
   }
 
-  render();
+  await reload();
 }

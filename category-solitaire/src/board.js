@@ -328,6 +328,8 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
   }
 
   render();
+  // 다른 화면으로 이동할 때 타이머·이벤트를 정리할 수 있게 돌려준다
+  return { stop: cleanup };
 }
 
 // ---------- 도우미 함수 ----------
