@@ -27,6 +27,7 @@ export function showStudentEntry(ctx, prefillCode = '') {
       <p class="lead">단어 카드를 알맞은 카테고리 칸으로 분류하는 게임이에요.</p>
       ${api.mode === 'demo' ? '<p class="demo-banner">체험 모드: 기록이 이 브라우저에만 저장돼요. 체험 수업 코드는 <b>DEMO23</b> 이에요.</p>' : ''}
 
+      ${prefillCode ? `<p class="notice">수업 코드 <b>${esc(prefillCode.toUpperCase())}</b>로 들어왔어요. 학번을 입력하세요.</p>` : ''}
       <form class="panel entry-form" id="entry-form" novalidate>
         <label>수업 코드
           <input name="code" required autocomplete="off" autocapitalize="characters" maxlength="6"
@@ -48,6 +49,8 @@ export function showStudentEntry(ctx, prefillCode = '') {
     </main>`;
 
   app.querySelector('#btn-teacher').addEventListener('click', ctx.goTeacher);
+  // QR 코드(입장 주소)로 들어오면 코드가 채워져 있으니 학번 칸부터
+  if (prefillCode) app.querySelector('[name="studentNo"]').focus();
   const form = app.querySelector('#entry-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

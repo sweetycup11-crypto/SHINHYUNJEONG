@@ -84,7 +84,12 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
     wasteEl.innerHTML = w ? cardHTML(w, { from: 'waste' }) : '<span class="pile-empty"></span>';
 
     tableauEl.innerHTML = state.columns.map((col, i) => {
-      const backs = col.slice(0, -1).map(() => '<div class="back-strip"></div>').join('');
+      // 밑에 깔린 카드: 뒷면이면 줄무늬, 한 번 앞면이 된 카드면 윗부분(단어)만 보이게
+      const backs = col.slice(0, -1).map((id) => {
+        if (!state.faceUp.has(id)) return '<div class="back-strip"></div>';
+        const c = state.cards[id];
+        return `<div class="peek-card ${c.type === 'category' ? 'category' : ''}"><span class="peek-text fit">${c.type === 'category' ? '★ ' : ''}${esc(c.text)}</span></div>`;
+      }).join('');
       const top = col.length ? cardHTML(col[col.length - 1], { from: 'col', index: i }) : '<div class="col-empty"></div>';
       return `<div class="col" data-col="${i}">${backs}${top}</div>`;
     }).join('');
