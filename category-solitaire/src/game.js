@@ -54,6 +54,26 @@ export function createGame(set, settings) {
     for (let c = row; c < colCount && deck.length; c++) columns[c].push(deck.pop());
   }
 
+  // 열에 뒷면으로 깔린 카테고리 카드는 더미(없으면 열 맨 위)의 단어 카드와 자리를 바꾼다.
+  // 열끼리는 같은 카테고리 위로만 옮길 수 있어서, 카테고리 카드가 깔려 있으면 판이 막힐 수 있기 때문
+  if (settings.shuffleCategories) {
+    const isWord = (id) => cards[id].type === 'word';
+    for (const col of columns) {
+      for (let k = 0; k < col.length - 1; k++) {
+        if (isWord(col[k])) continue;
+        let pile = deck;
+        let j = deck.findIndex(isWord);
+        if (j < 0) {
+          const other = columns.find((c) => c.length && isWord(c[c.length - 1]));
+          if (!other) break;
+          pile = other;
+          j = other.length - 1;
+        }
+        [col[k], pile[j]] = [pile[j], col[k]];
+      }
+    }
+  }
+
   // 처음에는 각 열의 맨 위 카드만 앞면
   const faceUp = new Set(columns.filter((col) => col.length).map((col) => col[col.length - 1]));
 
@@ -199,15 +219,24 @@ function placeRunOnSlot(state, src, slot, ids) {
 }
 
 // 카드(또는 묶음)를 다른 카드 열로 옮긴다 (밑에 깔린 카드를 꺼내기 위한 이동)
+// 빈 열에는 아무 카드나, 카드가 있는 열에는 맨 위 카드와 같은 카테고리 카드(묶음이면 맨 아래 카드 기준)만 놓을 수 있다.
+// 결과: { ok: true } 또는 { ok: false, message }
 export function moveToColumn(state, src, colIndex) {
-  if (src.from === 'col' && src.index === colIndex) return false;
+  if (src.from === 'col' && src.index === colIndex) return { ok: false };
   const ids = pickedIds(state, src);
-  if (!ids) return false;
+  if (!ids) return { ok: false };
+  const target = state.columns[colIndex];
+  if (target.length) {
+    const top = state.cards[target[target.length - 1]];
+    if (state.cards[ids[0]].category !== top.category) {
+      return { ok: false, message: '같은 카테고리 카드 위에만 놓을 수 있어요' };
+    }
+  }
   takeFrom(state, src, ids.length);
   state.columns[colIndex].push(...ids);
   for (const id of ids) state.faceUp.add(id);
   state.stats.moves++;
-  return true;
+  return { ok: true };
 }
 
 // 모든 단어 카드를 분류했는가

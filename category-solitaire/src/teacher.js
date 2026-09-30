@@ -225,6 +225,7 @@ async function showClass(ctx, body, classId, tab) {
           <span class="class-code big">${esc(cls.code)}</span>
           <div class="btn-row">
             <button type="button" class="btn small" id="btn-qr-big">QR 크게 보기</button>
+            <button type="button" class="btn small ghost" id="btn-copy-code">코드 복사</button>
             <button type="button" class="btn small ghost" id="btn-copy">입장 주소 복사</button>
           </div>
         </div>
@@ -244,14 +245,18 @@ async function showClass(ctx, body, classId, tab) {
   body.querySelector('#btn-qr').addEventListener('click', openBig);
   body.querySelector('#btn-qr-big').addEventListener('click', openBig);
 
-  body.querySelector('#btn-copy').addEventListener('click', async (e) => {
-    try {
-      await navigator.clipboard.writeText(joinUrl);
-      e.target.textContent = '복사했어요!';
-    } catch {
-      prompt('아래 주소를 복사하세요.', joinUrl);
+  // 코드만 복사 / 입장 주소(QR과 같은 링크) 복사
+  const copyButton = (btn, text, what) => btn.addEventListener('click', async () => {
+    const label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+    if (await copyText(text)) {
+      btn.textContent = '복사했어요!';
+      setTimeout(() => { btn.textContent = label; }, 1500);
+    } else {
+      prompt(`아래 ${what}를 길게 눌러 복사하세요.`, text);
     }
   });
+  copyButton(body.querySelector('#btn-copy-code'), cls.code, '수업 코드');
+  copyButton(body.querySelector('#btn-copy'), joinUrl, '입장 주소');
 
   const el = body.querySelector('#class-body');
   if (tab === 'sets') return showPublishedSets(el, cls, sets);
@@ -449,4 +454,25 @@ async function showQrOverlay(cls, joinUrl, qrOptions) {
   document.addEventListener('keydown', onKey);
   document.body.appendChild(overlay);
   overlay.querySelector('#qr-close').focus();
+}
+
+// 글자를 클립보드에 복사한다. 새 방식(Clipboard API)이 막힌 브라우저(카카오톡·앱 안 브라우저 등)는
+// 숨긴 입력칸을 선택해 복사하는 옛 방식으로 한 번 더 시도한다. 성공하면 true
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    Object.assign(ta.style, { position: 'fixed', top: '0', left: '0', opacity: '0' });
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+    return ok;
+  }
 }
