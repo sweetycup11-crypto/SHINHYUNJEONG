@@ -3,6 +3,7 @@ import { api } from './api.js';
 import { esc } from './board.js';
 import { saveBlob } from './excel.js';
 import { EMPTY_SLOT_LABEL } from './game.js';
+import { openStudentRemark, openClassRemarks } from './remarks.js';
 
 const TOP_N = 15; // 순위 표에 처음 보여 줄 줄 수
 
@@ -60,6 +61,7 @@ export async function showDashboard(el, { cls, sets }) {
         </label>
         <button type="button" class="btn small ghost" id="btn-refresh">새로고침</button>
         <button type="button" class="btn small" id="btn-csv">CSV 다운로드</button>
+        <button type="button" class="btn small ghost" id="btn-remarks">📝 반 전체 생기부 초안</button>
       </div>
 
       <section class="kpi-row" aria-label="요약">
@@ -126,6 +128,7 @@ export async function showDashboard(el, { cls, sets }) {
                 <td class="nowrap">${fmtDate(s.latestAt)}</td>
                 <td class="num">${wallets.get(s.no)?.coins ?? 0}</td>
                 <td class="nowrap">
+                  <button type="button" class="btn small ghost" data-remark="${esc(s.no)}">📝 생기부</button>
                   ${wallets.get(s.no)?.has_pin ? `<button type="button" class="btn small ghost" data-reset-pin="${esc(s.no)}">상점 비밀번호 초기화</button>` : ''}
                   <button type="button" class="btn small danger" data-del-student="${esc(s.no)}">삭제</button>
                 </td>
@@ -149,6 +152,19 @@ export async function showDashboard(el, { cls, sets }) {
       if (!confirm(`학번 ${no} 학생의 이 수업 기록과 코인·산 카드 뒷면을 모두 삭제할까요?`)) return;
       try { await api.deleteAttempts(cls.id, no); await load(); } catch (e) { alert(e.message); }
     }));
+    // 생기부 초안 (학생별 기록 묶기)
+    const rowsByStudent = new Map();
+    for (const a of rows) {
+      if (!rowsByStudent.has(a.student_no)) rowsByStudent.set(a.student_no, []);
+      rowsByStudent.get(a.student_no).push(a);
+    }
+    el.querySelectorAll('[data-remark]').forEach((b) => b.addEventListener('click', () => {
+      const student = students.find((x) => x.no === b.dataset.remark);
+      openStudentRemark({ student, rows: rowsByStudent.get(student.no), sets, filterName: filter });
+    }));
+    el.querySelector('#btn-remarks').addEventListener('click', () =>
+      openClassRemarks({ cls, students, rowsByStudent, sets, filterName: filter }));
+
     el.querySelectorAll('[data-reset-pin]').forEach((b) => b.addEventListener('click', async () => {
       const no = b.dataset.resetPin;
       if (!confirm(`학번 ${no} 학생의 상점 비밀번호를 지울까요?\n학생이 다음에 상점에서 살 때 새 비밀번호를 정해요. 코인은 그대로예요.`)) return;
