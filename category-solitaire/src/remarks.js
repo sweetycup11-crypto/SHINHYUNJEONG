@@ -118,7 +118,8 @@ const prefFields = (pref) => `
     <label>과목 <input name="subject" maxlength="40" placeholder="예: 통합과학, 화학Ⅰ" value="${esc(pref.subject || '')}" /></label>
     <label>분량
       <select name="length">
-        <option value="short" ${pref.length !== 'long' ? 'selected' : ''}>짧게 (1~2문장)</option>
+        <option value="auto" ${!['short', 'long'].includes(pref.length) ? 'selected' : ''}>자동 (참여 횟수에 맞춰 1~4문장)</option>
+        <option value="short" ${pref.length === 'short' ? 'selected' : ''}>짧게 (1~2문장)</option>
         <option value="long" ${pref.length === 'long' ? 'selected' : ''}>길게 (3~4문장)</option>
       </select>
     </label>
