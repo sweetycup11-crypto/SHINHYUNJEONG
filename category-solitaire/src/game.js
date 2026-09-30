@@ -7,7 +7,8 @@
 //   waste      : 더미에서 넘긴 카드. 마지막 카드가 맨 위(앞면)
 //   slots[i]   : 위쪽 카테고리 칸. category가 null이면 아직 열리지 않은 빈 칸
 //
-// 카드를 꺼내는 위치(src)는 { from: 'col', index } 또는 { from: 'waste' } 로 나타낸다.
+// 카드를 꺼내는 위치(src)는 { from: 'col', index, count } 또는 { from: 'waste' } 로 나타낸다.
+// count 는 열에서 함께 잡은 카드 수 (1 = 맨 위 카드만, 2 이상 = 밑에 깔린 앞면 카드부터 맨 위까지 한 묶음).
 
 export const EMPTY_SLOT_LABEL = '(빈 칸)';
 
@@ -94,12 +95,23 @@ export function topCardId(state, src) {
   return pile.length ? pile[pile.length - 1] : null;
 }
 
-// 카드를 꺼내고, 열에서 꺼냈다면 드러난 아래 카드를 앞면으로 뒤집는다
-function popFrom(state, src) {
+// 위치(src)에서 잡은 카드 id 목록 (아래 → 위 순서). 잡을 수 없으면 null
+// 묶음은 모두 앞면 카드여야 한다.
+export function pickedIds(state, src) {
   const pile = src.from === 'col' ? state.columns[src.index] : state.waste;
-  const id = pile.pop();
+  const n = src.from === 'col' ? src.count || 1 : 1;
+  if (!pile || n < 1 || n > pile.length) return null;
+  const ids = pile.slice(-n);
+  if (n > 1 && !ids.every((id) => state.faceUp.has(id))) return null;
+  return ids;
+}
+
+// 잡은 카드를 꺼내고, 열에서 꺼냈다면 드러난 아래 카드를 앞면으로 뒤집는다
+function takeFrom(state, src, n) {
+  const pile = src.from === 'col' ? state.columns[src.index] : state.waste;
+  const ids = pile.splice(pile.length - n, n);
   if (src.from === 'col' && pile.length) state.faceUp.add(pile[pile.length - 1]);
-  return id;
+  return ids;
 }
 
 // 뒷면 더미를 탭: 한 장 넘기기, 다 넘겼으면 처음부터 다시
@@ -119,15 +131,17 @@ export function flipStock(state) {
 // 카드를 카테고리 칸에 놓는다
 // 반환값 result: 'correct' | 'category' | 'wrong' | 'invalid'
 export function placeOnSlot(state, src, slotIndex) {
-  const id = topCardId(state, src);
-  if (!id) return { result: 'invalid' };
-  const card = state.cards[id];
+  const ids = pickedIds(state, src);
+  if (!ids) return { result: 'invalid' };
   const slot = state.slots[slotIndex];
+  if (ids.length > 1) return placeRunOnSlot(state, src, slot, ids);
+  const id = ids[0];
+  const card = state.cards[id];
 
   if (card.type === 'category') {
     // 카테고리 카드는 빈 칸에만 놓을 수 있다 (감점 없이 되돌아감)
     if (slot.category) return { result: 'invalid', message: '카테고리 카드는 빈 칸에 놓아요' };
-    popFrom(state, src);
+    takeFrom(state, src, 1);
     slot.category = card.category;
     state.stats.moves++;
     state.stats.categoryOpened++;
@@ -136,7 +150,7 @@ export function placeOnSlot(state, src, slotIndex) {
 
   state.stats.moves++;
   if (slot.category === card.category) {
-    popFrom(state, src);
+    takeFrom(state, src, 1);
     slot.placed.push(id);
     state.stats.correct++;
     const complete = slot.placed.length === state.totalByCategory[slot.category];
@@ -157,13 +171,41 @@ export function placeOnSlot(state, src, slotIndex) {
   };
 }
 
-// 카드를 다른 카드 열로 옮긴다 (밑에 깔린 카드를 꺼내기 위한 이동)
+// 여러 장(묶음)을 한 번에 칸에 놓는다: 모두 맞으면 한꺼번에 쌓고, 하나라도 틀리면 모두 제자리
+// 이동은 1번으로 세고, 틀린 카드마다 오답 1번
+function placeRunOnSlot(state, src, slot, ids) {
+  const cards = ids.map((id) => state.cards[id]);
+  if (cards.some((c) => c.type === 'category')) {
+    return { result: 'invalid', message: '카테고리 카드는 한 장씩 옮겨요' };
+  }
+  state.stats.moves++;
+  const wrongCards = cards.filter((c) => c.category !== slot.category);
+  if (!wrongCards.length) {
+    takeFrom(state, src, ids.length);
+    slot.placed.push(...ids);
+    state.stats.correct += ids.length;
+    const complete = slot.placed.length === state.totalByCategory[slot.category];
+    return { result: 'correct', card: cards[cards.length - 1], count: ids.length, complete };
+  }
+  for (const c of wrongCards) {
+    state.stats.wrong++;
+    state.wrongLog.push({ word: c.text, placed: slot.category || EMPTY_SLOT_LABEL, answer: c.category });
+  }
+  return {
+    result: 'wrong',
+    card: wrongCards[0],
+    message: slot.category ? `${ids.length}장 중 ${wrongCards.length}장이 다른 카테고리예요` : '먼저 카테고리 카드로 칸을 열어요',
+  };
+}
+
+// 카드(또는 묶음)를 다른 카드 열로 옮긴다 (밑에 깔린 카드를 꺼내기 위한 이동)
 export function moveToColumn(state, src, colIndex) {
   if (src.from === 'col' && src.index === colIndex) return false;
-  const id = popFrom(state, src);
-  if (!id) return false;
-  state.columns[colIndex].push(id);
-  state.faceUp.add(id);
+  const ids = pickedIds(state, src);
+  if (!ids) return false;
+  takeFrom(state, src, ids.length);
+  state.columns[colIndex].push(...ids);
+  for (const id of ids) state.faceUp.add(id);
   state.stats.moves++;
   return true;
 }

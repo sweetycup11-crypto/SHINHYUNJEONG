@@ -48,7 +48,8 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
 
   function cardHTML(id, src, extraClass = '') {
     const c = state.cards[id];
-    const isSel = selected && sameSrc(selected, src);
+    // 열의 맨 위 카드는 같은 열에서 묶음을 골랐을 때도 함께 강조
+    const isSel = selected && (src.from === 'col' ? selected.from === 'col' && selected.index === src.index : sameSrc(selected, src));
     const kind = c.type === 'category' ? 'category' : 'word';
     return `<div class="card ${kind} ${isSel ? 'selected' : ''} ${extraClass}" data-src="${srcKey(src)}" lang="${guessLang(c.text)}">
       ${kind === 'category' ? '<span class="card-badge">★<span class="badge-long"> 카테고리</span></span>' : ''}
@@ -85,10 +86,14 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
 
     tableauEl.innerHTML = state.columns.map((col, i) => {
       // 밑에 깔린 카드: 뒷면이면 줄무늬, 한 번 앞면이 된 카드면 윗부분(단어)만 보이게
-      const backs = col.slice(0, -1).map((id) => {
+      // 앞면 카드를 잡으면 그 카드부터 맨 위까지 한 묶음(count장)으로 움직인다
+      const backs = col.slice(0, -1).map((id, k) => {
         if (!state.faceUp.has(id)) return '<div class="back-strip"></div>';
         const c = state.cards[id];
-        return `<div class="peek-card ${c.type === 'category' ? 'category' : ''}"><span class="peek-text fit">${c.type === 'category' ? '★ ' : ''}${esc(c.text)}</span></div>`;
+        const count = col.length - k;
+        const sel = selected && selected.from === 'col' && selected.index === i && (selected.count || 1) >= count;
+        return `<div class="peek-card ${c.type === 'category' ? 'category' : ''} ${sel ? 'selected' : ''}" data-src="${srcKey({ from: 'col', index: i, count })}">
+          <span class="peek-text fit">${c.type === 'category' ? '★ ' : ''}${esc(c.text)}</span></div>`;
       }).join('');
       const top = col.length ? cardHTML(col[col.length - 1], { from: 'col', index: i }) : '<div class="col-empty"></div>';
       return `<div class="col" data-col="${i}">${backs}${top}</div>`;
@@ -164,6 +169,7 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
       render();
       flash(slotEl(), res.complete ? 'pop-complete' : 'pop-ok');
       if (res.result === 'category') toast(`‘${res.card.text}’ 칸이 열렸어요`, 'ok');
+      if (res.count > 1) toast(`${res.count}장을 한 번에 분류했어요!`, 'ok');
       if (res.complete) toast(`‘${res.card.category}’ 완성!`, 'ok');
       if (isFinished(state)) setTimeout(() => finish(true), 600);
       return;
@@ -183,9 +189,9 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
 
   // 복제 카드를 원래 위치로 날려 보내고, 원래 카드를 흔든다
   function bounceBack(src, clone) {
-    const origin = () => root.querySelector(`.card[data-src="${srcKey(src)}"]`);
+    const origin = () => root.querySelector(`[data-src="${srcKey(src)}"]`);
     const shake = () => {
-      root.querySelectorAll('.card.drag-origin').forEach((el) => el.classList.remove('drag-origin'));
+      root.querySelectorAll('.drag-origin').forEach((el) => el.classList.remove('drag-origin'));
       render();
       flash(origin(), 'shake');
     };
@@ -214,7 +220,7 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
 
   function onPointerDown(e) {
     if (busy || ended || e.button > 0) return;
-    const cardEl = e.target.closest('.card[data-src]');
+    const cardEl = e.target.closest('[data-src]');
     if (!cardEl) return;
     drag = { src: parseSrc(cardEl.dataset.src), el: cardEl, x0: e.clientX, y0: e.clientY, moving: false };
   }
@@ -225,14 +231,30 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
     const dy = e.clientY - drag.y0;
     if (!drag.moving) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-      // 드래그 시작: 카드 복제본을 만들어 손가락을 따라가게 한다
+      // 드래그 시작: 카드(묶음이면 그 위 카드들까지) 복제본을 만들어 손가락을 따라가게 한다
       const r = drag.el.getBoundingClientRect();
-      const clone = drag.el.cloneNode(true);
-      clone.classList.add('drag-clone');
-      clone.classList.remove('selected', 'shake');
-      Object.assign(clone.style, { width: r.width + 'px', height: r.height + 'px', left: r.left + 'px', top: r.top + 'px' });
+      const parts = [drag.el];
+      if ((drag.src.count || 1) > 1) {
+        for (let n = drag.el.nextElementSibling; n; n = n.nextElementSibling) parts.push(n);
+      }
+      let clone;
+      if (parts.length > 1) {
+        clone = document.createElement('div');
+        clone.className = 'drag-clone drag-run';
+        for (const part of parts) {
+          const c = part.cloneNode(true);
+          c.classList.remove('selected', 'shake');
+          clone.appendChild(c);
+        }
+        Object.assign(clone.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' });
+      } else {
+        clone = drag.el.cloneNode(true);
+        clone.classList.add('drag-clone');
+        clone.classList.remove('selected', 'shake');
+        Object.assign(clone.style, { width: r.width + 'px', height: r.height + 'px', left: r.left + 'px', top: r.top + 'px' });
+      }
       document.body.appendChild(clone);
-      drag.el.classList.add('drag-origin');
+      parts.forEach((part) => part.classList.add('drag-origin'));
       drag.clone = clone;
       drag.left0 = r.left;
       drag.top0 = r.top;
@@ -266,6 +288,8 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
   function onCardTap(src) {
     if (selected && sameSrc(selected, src)) {
       selected = null;
+    } else if (selected && src.from === 'col' && selected.from === 'col' && selected.index === src.index) {
+      selected = src; // 같은 열에서 다른 카드를 누르면 묶음을 다시 고른다
     } else if (selected && src.from === 'col') {
       return tryMove(selected, { type: 'col', index: src.index });
     } else {
@@ -284,7 +308,7 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
       render();
       return;
     }
-    if (e.target.closest('.card[data-src]')) return; // 카드 탭은 pointerup에서 처리
+    if (e.target.closest('[data-src]')) return; // 카드 탭은 pointerup에서 처리
     const slot = e.target.closest('[data-slot]');
     const col = e.target.closest('[data-col]');
     if (!selected) {
@@ -339,9 +363,14 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
 
 // ---------- 도우미 함수 ----------
 
-const srcKey = (src) => (src.from === 'col' ? 'col:' + src.index : 'waste');
-const parseSrc = (k) => (k === 'waste' ? { from: 'waste' } : { from: 'col', index: +k.split(':')[1] });
-const sameSrc = (a, b) => a.from === b.from && a.index === b.index;
+// 위치 ↔ 글자: 'waste', 'col:2'(맨 위 카드), 'col:2:3'(2번 열의 위에서 3장 묶음)
+const srcKey = (src) => (src.from === 'col' ? `col:${src.index}${(src.count || 1) > 1 ? ':' + src.count : ''}` : 'waste');
+const parseSrc = (k) => {
+  if (k === 'waste') return { from: 'waste' };
+  const [, index, count] = k.split(':');
+  return { from: 'col', index: +index, count: +(count || 1) };
+};
+const sameSrc = (a, b) => a.from === b.from && a.index === b.index && (a.count || 1) === (b.count || 1);
 const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 
 export function esc(str) {

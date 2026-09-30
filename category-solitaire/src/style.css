@@ -188,6 +188,11 @@ summary small { font-weight: 400; color: var(--ink-dim); }
   box-shadow: 0 -1px 3px rgba(20, 30, 50, .10);
 }
 .peek-card.category { background: var(--gold-soft); border-color: var(--gold); }
+.peek-card { cursor: grab; touch-action: none; position: relative; }
+.peek-card.selected { outline: 3px solid var(--accent); outline-offset: 1px; z-index: 1; }
+.peek-card.drag-origin, .card.drag-origin { opacity: .25; }
+.drag-run { display: flex; flex-direction: column; }
+.drag-run .card { box-shadow: 0 10px 24px rgba(0,0,0,.3); }
 .peek-text { display: block; width: 100%; text-align: center; font-size: .8rem; font-weight: 700; line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
 .peek-card.category .peek-text { color: var(--gold); }
