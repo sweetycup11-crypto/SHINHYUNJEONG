@@ -145,7 +145,8 @@ export function openStudentRemark({ student, rows, sets, filterName }) {
     ${prefFields(pref)}
     <label class="memo-label">교사 관찰 메모 (선택)
       <textarea name="note" maxlength="300" rows="2" placeholder="예: 모둠 활동에서 친구에게 개념 차이를 설명해 줌"></textarea>
-      <small>메모도 AI에 보내져요. 이름·학번 등 개인정보는 쓰지 마세요.</small>
+      <small>메모도 AI에 보내져요. 이름·학번 등 개인정보는 쓰지 마세요.<br />
+        ‘흥미, 열정, 적극성’ 같은 감정·태도 표현은 교사 메모에 쓴 경우에만 문장에 들어가요. 게임 기록만으로는 알 수 없기 때문이에요.</small>
     </label>
     ${DISCLAIMER}
     <p class="save-status" role="status"></p>
