@@ -154,10 +154,12 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
   function tryMove(src, target, clone) {
     selected = null;
     if (target.type === 'col') {
-      if (moveToColumn(state, src, target.index)) {
+      const res = moveToColumn(state, src, target.index);
+      if (res.ok) {
         clone?.remove();
         render();
       } else {
+        if (res.message) toast(res.message);
         bounceBack(src, clone);
       }
       return;
