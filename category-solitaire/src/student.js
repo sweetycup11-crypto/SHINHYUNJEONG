@@ -4,6 +4,9 @@ import { mergeSettings } from './settings.js';
 import { categoriesOf } from './game.js';
 import { esc } from './board.js';
 import { showResult, toAttemptPayload } from './result.js';
+import { showShop } from './shop.js';
+
+const EMPTY_WALLET = { coins: 0, owned: ['default'], equipped: 'default', has_pin: false };
 
 // 마지막으로 입력한 수업 코드·학번을 이 기기에 기억 (편의 기능, 실패해도 무관)
 const REMEMBER_KEY = 'cs-student';
@@ -14,7 +17,7 @@ function remember(v) {
   try { localStorage.setItem(REMEMBER_KEY, JSON.stringify(v)); } catch { /* 무시 */ }
 }
 
-let session = null; // { code, studentNo, studentName, className, settings, sets }
+let session = null; // { code, studentNo, studentName, className, settings, sets, wallet, pin }
 
 // ctx: { app, runGame(set, settings, handlers), applyTheme(theme), goTeacher() }
 export function showStudentEntry(ctx, prefillCode = '') {
@@ -27,6 +30,7 @@ export function showStudentEntry(ctx, prefillCode = '') {
       <p class="lead">단어 카드를 알맞은 카테고리 칸으로 분류하는 게임이에요.</p>
       ${api.mode === 'demo' ? '<p class="demo-banner">체험 모드: 기록이 이 브라우저에만 저장돼요. 체험 수업 코드는 <b>DEMO23</b> 이에요.</p>' : ''}
 
+      ${prefillCode ? `<p class="notice">수업 코드 <b>${esc(prefillCode.toUpperCase())}</b>로 들어왔어요. 학번을 입력하세요.</p>` : ''}
       <form class="panel entry-form" id="entry-form" novalidate>
         <label>수업 코드
           <input name="code" required autocomplete="off" autocapitalize="characters" maxlength="6"
@@ -48,6 +52,8 @@ export function showStudentEntry(ctx, prefillCode = '') {
     </main>`;
 
   app.querySelector('#btn-teacher').addEventListener('click', ctx.goTeacher);
+  // QR 코드(입장 주소)로 들어오면 코드가 채워져 있으니 학번 칸부터
+  if (prefillCode) app.querySelector('[name="studentNo"]').focus();
   const form = app.querySelector('#entry-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -63,7 +69,9 @@ export function showStudentEntry(ctx, prefillCode = '') {
     btn.textContent = '확인하는 중…';
     try {
       const cls = await api.enterClass(code);
-      session = { code, studentNo, studentName, ...cls };
+      // 지갑(코인·카드 뒷면)을 못 불러와도 게임은 할 수 있게
+      const wallet = await api.getWallet(code, studentNo).catch(() => EMPTY_WALLET);
+      session = { code, studentNo, studentName, ...cls, wallet };
       remember({ code, studentNo, studentName });
       showSetList(ctx);
     } catch (ex) {
@@ -84,6 +92,11 @@ function showSetList(ctx) {
       <button type="button" class="back-link" id="btn-exit">← 나가기</button>
       <h1 class="title">${esc(session.className)}</h1>
       <p class="lead">학번 ${esc(session.studentNo)}${session.studentName ? ` · ${esc(session.studentName)}` : ''}</p>
+      ${settings.shopOn ? `
+        <div class="wallet-bar">
+          <span>🪙 <b>${session.wallet.coins}</b> 코인</span>
+          <button type="button" class="btn small" id="btn-shop">🛒 카드 뒷면 상점</button>
+        </div>` : ''}
 
       <h2 class="section-title">게임 세트 고르기</h2>
       ${session.sets.length ? `<div class="set-list">
@@ -100,21 +113,28 @@ function showSetList(ctx) {
     </main>`;
 
   app.querySelector('#btn-exit').addEventListener('click', () => { session = null; showStudentEntry(ctx); });
+  app.querySelector('#btn-shop')?.addEventListener('click', () => showShop(ctx, session, () => showSetList(ctx)));
   app.querySelectorAll('[data-set]').forEach((b) =>
     b.addEventListener('click', () => play(ctx, session.sets[+b.dataset.set])));
 }
 
 function play(ctx, set) {
   const settings = mergeSettings(session.settings);
+  // 상점에서 고른 카드 뒷면 (상점을 끈 수업은 기본)
+  settings.cardBack = settings.shopOn ? session.wallet.equipped : 'default';
   const s = session;
   ctx.runGame(set, settings, {
     onQuit: () => showSetList(ctx),
     onEnd: (result) => showResult(ctx.app, {
       set, result, settings,
-      save: () => api.submitAttempt({
-        code: s.code, studentNo: s.studentNo, studentName: s.studentName, setId: set.id,
-        result: toAttemptPayload(result),
-      }),
+      save: async () => {
+        const r = await api.submitAttempt({
+          code: s.code, studentNo: s.studentNo, studentName: s.studentName, setId: set.id,
+          result: toAttemptPayload(result),
+        });
+        if (typeof r.coins === 'number') s.wallet = { ...s.wallet, coins: r.coins };
+        return { ...r, showCoins: settings.shopOn };
+      },
       onAgain: () => play(ctx, set),
       onBack: () => showSetList(ctx),
       backLabel: '세트 고르기',

@@ -58,6 +58,20 @@ create table if not exists public.attempts (
   wrong_list       jsonb not null default '[]'::jsonb,               -- [{word, placed, answer}]
   created_at       timestamptz not null default now()
 );
+-- 학생 지갑: 수업(반)별 코인, 산 카드 뒷면, 상점 비밀번호(4자리, 암호화 저장)
+create table if not exists public.student_wallets (
+  class_id          uuid not null references public.classes (id) on delete cascade,
+  student_no        text not null,
+  coins             integer not null default 0 check (coins >= 0),
+  owned             text[] not null default array['default'],
+  equipped          text not null default 'default',
+  pin_hash          text,                                           -- 비밀번호 해시 (원래 숫자는 저장하지 않음)
+  pin_fails         integer not null default 0,
+  pin_locked_until  timestamptz,
+  updated_at        timestamptz not null default now(),
+  primary key (class_id, student_no)
+);
+
 create index if not exists attempts_class_idx on public.attempts (class_id, created_at);
 create index if not exists attempts_student_idx on public.attempts (class_id, student_no, set_id);
 
@@ -67,6 +81,7 @@ alter table public.game_sets  enable row level security;
 alter table public.classes    enable row level security;
 alter table public.class_sets enable row level security;
 alter table public.attempts   enable row level security;
+alter table public.student_wallets enable row level security;
 
 drop policy if exists "own sets" on public.game_sets;
 create policy "own sets" on public.game_sets for all to authenticated
@@ -96,12 +111,26 @@ drop policy if exists "delete own class attempts" on public.attempts;
 create policy "delete own class attempts" on public.attempts for delete to authenticated
   using (exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = (select auth.uid())));
 
+-- 학생 지갑: 교사는 자기 수업 지갑을 보고, 비밀번호 초기화(수정)·삭제만 (코인 적립·구매는 학생 함수로만)
+drop policy if exists "read own class wallets" on public.student_wallets;
+create policy "read own class wallets" on public.student_wallets for select to authenticated
+  using (exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = (select auth.uid())));
+drop policy if exists "update own class wallets" on public.student_wallets;
+create policy "update own class wallets" on public.student_wallets for update to authenticated
+  using (exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = (select auth.uid())))
+  with check (exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = (select auth.uid())));
+drop policy if exists "delete own class wallets" on public.student_wallets;
+create policy "delete own class wallets" on public.student_wallets for delete to authenticated
+  using (exists (select 1 from public.classes c where c.id = class_id and c.teacher_id = (select auth.uid())));
+
 -- 로그인한 교사(authenticated)에게 표 사용 권한 (실제 범위는 위 RLS 규칙이 제한)
 grant select, insert, update, delete on public.game_sets, public.classes, public.class_sets to authenticated;
 grant select, delete on public.attempts to authenticated;
+grant select, delete on public.student_wallets to authenticated;
+grant update (pin_hash, pin_fails, pin_locked_until) on public.student_wallets to authenticated;
 
 -- 로그인하지 않은 사용자(anon)는 테이블에 직접 접근 불가
-revoke all on public.game_sets, public.classes, public.class_sets, public.attempts from anon;
+revoke all on public.game_sets, public.classes, public.class_sets, public.attempts, public.student_wallets from anon;
 
 -- ---------- 학생용 함수 ----------
 
@@ -161,6 +190,7 @@ declare
   v_c       integer;  -- 정답 수
   v_w       integer;  -- 오답 수
   v_f       boolean;  -- 모두 분류했는지
+  v_coins   integer;  -- 적립 후 코인
 begin
   select * into v_class from public.classes where code = upper(trim(p_code));
   if not found then
@@ -231,10 +261,18 @@ begin
     v_s, v_e, v_m, v_c, v_w, v_words, v_f, v_wrong
   );
 
+  -- 코인 적립: 점수의 1/10 (소수점 버림)
+  insert into public.student_wallets as w (class_id, student_no, coins)
+  values (v_class.id, v_no, v_s / 10)
+  on conflict (class_id, student_no) do update set coins = w.coins + excluded.coins, updated_at = now()
+  returning w.coins into v_coins;
+
   return (
     select jsonb_build_object(
       'best', max(a.score),
-      'history', jsonb_agg(jsonb_build_object('score', a.score, 'at', a.created_at) order by a.created_at)
+      'history', jsonb_agg(jsonb_build_object('score', a.score, 'at', a.created_at) order by a.created_at),
+      'coins_earned', v_s / 10,
+      'coins', v_coins
     )
     from (
       select score, created_at from public.attempts
@@ -253,3 +291,135 @@ revoke all on function public.student_enter(text) from public;
 revoke all on function public.submit_attempt(text, text, text, uuid, jsonb) from public;
 grant execute on function public.student_enter(text) to anon, authenticated;
 grant execute on function public.submit_attempt(text, text, text, uuid, jsonb) to anon, authenticated;
+
+
+-- =====================================================================
+-- 상점: 코인으로 카드 뒷면 디자인 사기
+-- 가격표는 src/shop.js 의 CARD_BACKS 와 같아야 합니다.
+-- =====================================================================
+create extension if not exists pgcrypto with schema extensions;
+
+create or replace function public.shop_price(p_item text)
+returns integer
+language sql
+immutable
+set search_path = ''
+as $$
+  select case p_item
+    when 'default'   then 0
+    when 'dots'      then 50
+    when 'check'     then 80
+    when 'waves'     then 100
+    when 'sunset'    then 120
+    when 'honeycomb' then 150
+    when 'stars'     then 200
+    when 'rainbow'   then 250
+    when 'galaxy'    then 300
+    when 'gold'      then 500
+  end;
+$$;
+
+-- 내 지갑 보기 (코인·산 디자인·장착한 디자인·비밀번호를 정했는지)
+create or replace function public.student_wallet(p_code text, p_student_no text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_class public.classes;
+  v_w     public.student_wallets;
+begin
+  select * into v_class from public.classes where code = upper(trim(p_code));
+  if not found then
+    raise exception 'CLASS_NOT_FOUND';
+  end if;
+  select * into v_w from public.student_wallets where class_id = v_class.id and student_no = trim(p_student_no);
+  if not found then
+    return jsonb_build_object('coins', 0, 'owned', jsonb_build_array('default'), 'equipped', 'default', 'has_pin', false);
+  end if;
+  return jsonb_build_object('coins', v_w.coins, 'owned', to_jsonb(v_w.owned), 'equipped', v_w.equipped,
+                            'has_pin', v_w.pin_hash is not null);
+end;
+$$;
+
+-- 사기(buy) / 장착하기(equip). 비밀번호가 없으면 이번에 입력한 숫자로 정한다.
+-- 비밀번호가 틀리거나 코인이 모자라면 오류 대신 {"error": ...} 를 돌려준다
+-- (틀린 횟수 기록이 되돌려지지 않게 하기 위해). 5번 틀리면 10분 잠금.
+create or replace function public.shop_action(p_code text, p_student_no text, p_pin text, p_action text, p_item text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_class public.classes;
+  v_no    text := trim(coalesce(p_student_no, ''));
+  v_w     public.student_wallets;
+  v_price integer := public.shop_price(p_item);
+begin
+  select * into v_class from public.classes where code = upper(trim(p_code));
+  if not found then
+    raise exception 'CLASS_NOT_FOUND';
+  end if;
+  if coalesce(v_class.settings ->> 'shopOn', 'true') = 'false' then
+    raise exception 'SHOP_OFF';
+  end if;
+  if v_no !~ '^[0-9A-Za-z-]{1,20}$' then
+    raise exception 'INVALID_STUDENT_NO';
+  end if;
+  if coalesce(p_pin, '') !~ '^[0-9]{4}$' then
+    raise exception 'INVALID_PIN';
+  end if;
+  if v_price is null or p_action not in ('buy', 'equip') then
+    raise exception 'INVALID_ITEM';
+  end if;
+
+  insert into public.student_wallets (class_id, student_no) values (v_class.id, v_no)
+  on conflict (class_id, student_no) do nothing;
+  select * into v_w from public.student_wallets
+  where class_id = v_class.id and student_no = v_no for update;
+
+  if v_w.pin_locked_until is not null and v_w.pin_locked_until > now() then
+    return jsonb_build_object('error', 'PIN_LOCKED',
+      'minutes', ceil(extract(epoch from v_w.pin_locked_until - now()) / 60));
+  end if;
+
+  if v_w.pin_hash is null then
+    update public.student_wallets set pin_hash = extensions.crypt(p_pin, extensions.gen_salt('bf'))
+    where class_id = v_class.id and student_no = v_no;
+  elsif v_w.pin_hash <> extensions.crypt(p_pin, v_w.pin_hash) then
+    update public.student_wallets
+    set pin_fails = case when pin_fails + 1 >= 5 then 0 else pin_fails + 1 end,
+        pin_locked_until = case when pin_fails + 1 >= 5 then now() + interval '10 minutes' else null end
+    where class_id = v_class.id and student_no = v_no;
+    return jsonb_build_object('error', 'WRONG_PIN', 'tries_left', greatest(0, 4 - v_w.pin_fails));
+  else
+    update public.student_wallets set pin_fails = 0, pin_locked_until = null
+    where class_id = v_class.id and student_no = v_no;
+  end if;
+
+  if p_action = 'buy' and not (p_item = any (v_w.owned)) then
+    if v_w.coins < v_price then
+      return jsonb_build_object('error', 'NOT_ENOUGH_COINS', 'coins', v_w.coins, 'price', v_price);
+    end if;
+    update public.student_wallets
+    set coins = coins - v_price, owned = array_append(owned, p_item), equipped = p_item, updated_at = now()
+    where class_id = v_class.id and student_no = v_no;
+  elsif p_item = any (v_w.owned) then
+    update public.student_wallets set equipped = p_item, updated_at = now()
+    where class_id = v_class.id and student_no = v_no;
+  else
+    return jsonb_build_object('error', 'NOT_OWNED');
+  end if;
+
+  return public.student_wallet(p_code, v_no);
+end;
+$$;
+
+revoke all on function public.shop_price(text) from public;
+revoke all on function public.student_wallet(text, text) from public;
+revoke all on function public.shop_action(text, text, text, text, text) from public;
+grant execute on function public.shop_price(text) to anon, authenticated;
+grant execute on function public.student_wallet(text, text) to anon, authenticated;
+grant execute on function public.shop_action(text, text, text, text, text) to anon, authenticated;

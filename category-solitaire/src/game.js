@@ -1,7 +1,8 @@
 // 게임 규칙과 상태 관리 (화면과 분리된 순수 로직)
 //
 // 카드 위치:
-//   columns[i] : 카드 열. 배열의 마지막 카드가 맨 위(앞면)
+//   columns[i] : 카드 열. 배열의 마지막 카드가 맨 위
+//   faceUp     : 한 번이라도 앞면이 된 카드 id (열에서 다른 카드에 덮여도 윗부분이 보인다)
 //   stock      : 뒷면 카드 더미. 마지막 카드가 맨 위
 //   waste      : 더미에서 넘긴 카드. 마지막 카드가 맨 위(앞면)
 //   slots[i]   : 위쪽 카테고리 칸. category가 null이면 아직 열리지 않은 빈 칸
@@ -52,6 +53,9 @@ export function createGame(set, settings) {
     for (let c = row; c < colCount && deck.length; c++) columns[c].push(deck.pop());
   }
 
+  // 처음에는 각 열의 맨 위 카드만 앞면
+  const faceUp = new Set(columns.filter((col) => col.length).map((col) => col[col.length - 1]));
+
   const wordCount = set.rows.length;
   const totalByCategory = {};
   for (const r of set.rows) totalByCategory[r.category] = (totalByCategory[r.category] || 0) + 1;
@@ -67,6 +71,7 @@ export function createGame(set, settings) {
     cards,
     columns,
     stock: deck,
+    faceUp,
     waste: [],
     slots,
     totalByCategory,
@@ -89,8 +94,12 @@ export function topCardId(state, src) {
   return pile.length ? pile[pile.length - 1] : null;
 }
 
+// 카드를 꺼내고, 열에서 꺼냈다면 드러난 아래 카드를 앞면으로 뒤집는다
 function popFrom(state, src) {
-  return (src.from === 'col' ? state.columns[src.index] : state.waste).pop();
+  const pile = src.from === 'col' ? state.columns[src.index] : state.waste;
+  const id = pile.pop();
+  if (src.from === 'col' && pile.length) state.faceUp.add(pile[pile.length - 1]);
+  return id;
 }
 
 // 뒷면 더미를 탭: 한 장 넘기기, 다 넘겼으면 처음부터 다시
@@ -154,6 +163,7 @@ export function moveToColumn(state, src, colIndex) {
   const id = popFrom(state, src);
   if (!id) return false;
   state.columns[colIndex].push(id);
+  state.faceUp.add(id);
   state.stats.moves++;
   return true;
 }

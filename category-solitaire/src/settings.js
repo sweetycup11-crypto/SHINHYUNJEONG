@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS = {
   timeLimitOn: false,       // 시간 제한 사용 여부
   timeLimitSec: 300,        // 시간 제한(초)
   theme: 'blue',            // 색상 테마: blue / green / purple / orange
+  shopOn: true,             // 학생 상점 (게임 점수의 1/10을 코인으로 모아 카드 뒷면을 삼)
   score: {
     correct: 10,            // 단어 카드 정답 배치 가점
     wrong: 5,               // 단어 카드 오답 배치 감점

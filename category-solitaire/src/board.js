@@ -22,7 +22,7 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
   const startedAt = Date.now();
 
   root.innerHTML = `
-    <div class="game" style="--cols:${settings.columns}">
+    <div class="game" style="--cols:${settings.columns}" data-back="${esc(settings.cardBack || 'default')}">
       <header class="hud">
         <div class="hud-item"><span class="hud-label">점수</span><b id="hud-score">0</b></div>
         <div class="hud-item"><span class="hud-label" id="hud-time-label">시간</span><b id="hud-time">00:00</b></div>
@@ -84,7 +84,12 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
     wasteEl.innerHTML = w ? cardHTML(w, { from: 'waste' }) : '<span class="pile-empty"></span>';
 
     tableauEl.innerHTML = state.columns.map((col, i) => {
-      const backs = col.slice(0, -1).map(() => '<div class="back-strip"></div>').join('');
+      // 밑에 깔린 카드: 뒷면이면 줄무늬, 한 번 앞면이 된 카드면 윗부분(단어)만 보이게
+      const backs = col.slice(0, -1).map((id) => {
+        if (!state.faceUp.has(id)) return '<div class="back-strip"></div>';
+        const c = state.cards[id];
+        return `<div class="peek-card ${c.type === 'category' ? 'category' : ''}"><span class="peek-text fit">${c.type === 'category' ? '★ ' : ''}${esc(c.text)}</span></div>`;
+      }).join('');
       const top = col.length ? cardHTML(col[col.length - 1], { from: 'col', index: i }) : '<div class="col-empty"></div>';
       return `<div class="col" data-col="${i}">${backs}${top}</div>`;
     }).join('');

@@ -40,6 +40,7 @@ export function showResult(app, { set, result, settings, save, onAgain, onBack, 
         <div><span>이번 점수</span><b>${score.total}</b><em id="best-badge"></em></div>
         <div><span>최고 점수</span><b id="best-score">${save ? '…' : '-'}</b></div>
       </section>
+      <p class="coin-status" id="coin-status" aria-live="polite"></p>
       <p class="save-status" id="save-status" role="status">${save ? '기록을 저장하는 중…' : '연습 플레이라서 기록은 저장되지 않아요.'}</p>
 
       <table class="breakdown">
@@ -88,8 +89,11 @@ export function showResult(app, { set, result, settings, save, onAgain, onBack, 
     status.className = 'save-status';
     status.textContent = '기록을 저장하는 중…';
     try {
-      const { best, history } = await save();
+      const { best, history, coins_earned: earned, coins, showCoins } = await save();
       app.querySelector('#best-score').textContent = best;
+      if (showCoins && typeof earned === 'number') {
+        app.querySelector('#coin-status').textContent = `🪙 +${earned} 코인 (모은 코인 ${coins})`;
+      }
       if (score.total === best && history.length > 1) app.querySelector('#best-badge').textContent = '최고 기록!';
       status.textContent = '기록을 저장했어요.';
       status.classList.add('ok');

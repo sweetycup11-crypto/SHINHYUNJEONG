@@ -5,6 +5,7 @@ import { esc } from './board.js';
 import { showSetManager } from './teacher-sets.js';
 import { showDashboard } from './dashboard.js';
 import { showResult } from './result.js';
+import QRCode from 'qrcode';
 
 // ctx: { app, runGame, applyTheme, goStudent() }
 // path: 주소의 #/teacher 뒤 부분을 나눈 배열 (예: ['class', '<id>', 'results'])
@@ -216,17 +217,32 @@ async function showClass(ctx, body, classId, tab) {
     <a class="back-link" href="#/teacher">← 수업 목록</a>
     <section class="class-head">
       <h1 class="title">${esc(cls.name)}</h1>
-      <div class="code-box">
-        <span class="class-code big">${esc(cls.code)}</span>
-        <button type="button" class="btn small ghost" id="btn-copy">학생 입장 주소 복사</button>
+      <div class="join-box">
+        <button type="button" class="qr-thumb" id="btn-qr" aria-label="입장 QR 코드 크게 보기">
+          <img id="qr-small" alt="수업 ${esc(cls.code)} 입장 QR 코드" width="112" height="112" />
+        </button>
+        <div class="join-info">
+          <span class="class-code big">${esc(cls.code)}</span>
+          <div class="btn-row">
+            <button type="button" class="btn small" id="btn-qr-big">QR 크게 보기</button>
+            <button type="button" class="btn small ghost" id="btn-copy">입장 주소 복사</button>
+          </div>
+        </div>
       </div>
-      <p class="note">학생은 수업 코드 <b>${esc(cls.code)}</b>와 학번을 입력하거나, 복사한 주소로 바로 들어와요.</p>
+      <p class="note">학생이 휴대폰 카메라로 QR 코드를 찍으면 수업 코드가 채워진 채로 열려요. 학생은 학번만 입력하면 돼요.</p>
     </section>
     <nav class="tabs sub" aria-label="수업 메뉴">
       ${[['results', '결과'], ['sets', '공개 세트'], ['settings', '설정']].map(([k, v]) =>
         `<a href="#/teacher/class/${cls.id}/${k}" class="${tab === k ? 'active' : ''}">${v}</a>`).join('')}
     </nav>
     <div id="class-body"></div>`;
+
+  // 입장 주소를 QR 코드 그림으로 (검은색·흰 바탕이 가장 잘 찍혀요)
+  const qrOptions = { errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } };
+  QRCode.toDataURL(joinUrl, { ...qrOptions, width: 224 }).then((url) => { body.querySelector('#qr-small').src = url; });
+  const openBig = () => showQrOverlay(cls, joinUrl, qrOptions);
+  body.querySelector('#btn-qr').addEventListener('click', openBig);
+  body.querySelector('#btn-qr-big').addEventListener('click', openBig);
 
   body.querySelector('#btn-copy').addEventListener('click', async (e) => {
     try {
@@ -303,6 +319,7 @@ function showSettings(ctx, el, cls, sets) {
         </label>
         <label class="check"><input type="checkbox" name="shuffleCategories" ${s.shuffleCategories ? 'checked' : ''}/> 카테고리 카드 섞기 (끄면 칸이 처음부터 열려 쉬워요)</label>
         <label class="check"><input type="checkbox" name="timeLimitOn" ${s.timeLimitOn ? 'checked' : ''}/> 시간 제한 사용</label>
+        <label class="check"><input type="checkbox" name="shopOn" ${s.shopOn ? 'checked' : ''}/> 학생 상점 사용 (게임 점수의 1/10을 코인으로 모아 카드 뒷면 디자인을 사요)</label>
         ${num('timeLimitSec', s.timeLimitSec, 30, 1800, 10, '제한 시간(초)', '30~1800초')}
       </div>
 
@@ -342,6 +359,7 @@ function showSettings(ctx, el, cls, sets) {
       shuffleCategories: f.has('shuffleCategories'),
       timeLimitOn: f.has('timeLimitOn'),
       timeLimitSec: n('timeLimitSec'),
+      shopOn: f.has('shopOn'),
       score: {
         correct: n('correct'), wrong: n('wrong'), category: n('category'),
         secPerCard: n('secPerCard'), timeBonusPerSec: n('timeBonusPerSec'),
@@ -404,4 +422,31 @@ function showSettings(ctx, el, cls, sets) {
       alert(ex.message);
     }
   });
+}
+
+// 교실 화면(TV·프로젝터)에 띄우는 큰 QR 코드
+async function showQrOverlay(cls, joinUrl, qrOptions) {
+  const url = await QRCode.toDataURL(joinUrl, { ...qrOptions, width: 1024 });
+  const overlay = document.createElement('div');
+  overlay.className = 'qr-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', '입장 QR 코드');
+  overlay.innerHTML = `
+    <div class="qr-sheet">
+      <p class="qr-class">${esc(cls.name)}</p>
+      <img src="${url}" alt="수업 ${esc(cls.code)} 입장 QR 코드" />
+      <p class="qr-help">휴대폰 카메라로 찍고 <b>학번</b>을 입력하세요</p>
+      <p class="qr-code">수업 코드 <b>${esc(cls.code)}</b></p>
+      <div class="btn-row">
+        <a class="btn ghost" href="${url}" download="${esc(cls.name)}_입장QR.png">그림으로 저장</a>
+        <button type="button" class="btn" id="qr-close">닫기</button>
+      </div>
+    </div>`;
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('#qr-close').addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
+  overlay.querySelector('#qr-close').focus();
 }
