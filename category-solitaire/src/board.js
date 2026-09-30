@@ -22,7 +22,7 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
   const startedAt = Date.now();
 
   root.innerHTML = `
-    <div class="game" style="--cols:${settings.columns}">
+    <div class="game" style="--cols:${settings.columns}" data-back="${esc(settings.cardBack || 'default')}">
       <header class="hud">
         <div class="hud-item"><span class="hud-label">점수</span><b id="hud-score">0</b></div>
         <div class="hud-item"><span class="hud-label" id="hud-time-label">시간</span><b id="hud-time">00:00</b></div>

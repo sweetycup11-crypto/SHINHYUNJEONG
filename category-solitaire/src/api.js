@@ -8,6 +8,7 @@
 //   절대 service_role 키를 넣지 마세요.
 import { createClient } from '@supabase/supabase-js';
 import { SAMPLE_SET } from './sample-set.js';
+import { priceOf } from './card-backs.js';
 
 const URL_ = import.meta.env.VITE_SUPABASE_URL;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -20,6 +21,9 @@ const MESSAGES = {
   INVALID_STUDENT_NAME: '이름은 20자 이내로 입력해 주세요.',
   INVALID_RESULT: '결과를 저장하지 못했어요. (기록 값이 올바르지 않음)',
   TOO_FAST: '잠시 후 다시 시도해 주세요.',
+  SHOP_OFF: '지금은 상점을 쓸 수 없어요. (선생님이 상점을 껐어요)',
+  INVALID_PIN: '비밀번호는 숫자 4자리예요.',
+  INVALID_ITEM: '없는 상품이에요.',
 };
 
 function friendly(err) {
@@ -145,10 +149,22 @@ function supabaseApi() {
       }
       return all;
     },
+    // 학생 기록을 지울 때 그 학생(들)의 코인·상점 기록도 함께 지운다
     async deleteAttempts(classId, studentNo) {
-      let q = sb.from('attempts').delete().eq('class_id', classId);
-      if (studentNo) q = q.eq('student_no', studentNo);
-      must(await q);
+      for (const table of ['attempts', 'student_wallets']) {
+        let q = sb.from(table).delete().eq('class_id', classId);
+        if (studentNo) q = q.eq('student_no', studentNo);
+        must(await q);
+      }
+    },
+    async listWallets(classId) {
+      const rows = must(await sb.from('student_wallets')
+        .select('student_no, coins, owned, equipped, pin_hash, pin_locked_until').eq('class_id', classId));
+      return rows.map(({ pin_hash, ...w }) => ({ ...w, has_pin: !!pin_hash }));
+    },
+    async resetPin(classId, studentNo) {
+      must(await sb.from('student_wallets').update({ pin_hash: null, pin_fails: 0, pin_locked_until: null })
+        .eq('class_id', classId).eq('student_no', studentNo));
     },
 
     // ---------- 학생 ----------
@@ -160,6 +176,13 @@ function supabaseApi() {
       return must(await sb.rpc('submit_attempt', {
         p_code: code, p_student_no: studentNo, p_student_name: studentName || null, p_set_id: setId, p_result: result,
       }));
+    },
+    async getWallet(code, studentNo) {
+      return must(await sb.rpc('student_wallet', { p_code: code, p_student_no: studentNo }));
+    },
+    // 결과에 error 가 있으면 비밀번호 틀림·코인 부족 등 (화면에서 안내)
+    async shopAction({ code, studentNo, pin, action, item }) {
+      return must(await sb.rpc('shop_action', { p_code: code, p_student_no: studentNo, p_pin: pin, p_action: action, p_item: item }));
     },
   };
 }
@@ -247,6 +270,7 @@ function demoApi() {
       const db = load();
       db.classes = db.classes.filter((c) => c.id !== id);
       db.attempts = db.attempts.filter((a) => a.class_id !== id);
+      db.wallets = (db.wallets || []).filter((w) => w.class_id !== id);
       save(db);
     },
     async setClassSets(classId, setIds) {
@@ -258,7 +282,19 @@ function demoApi() {
     async listAttempts(classId) { return load().attempts.filter((a) => a.class_id === classId); },
     async deleteAttempts(classId, studentNo) {
       const db = load();
-      db.attempts = db.attempts.filter((a) => !(a.class_id === classId && (!studentNo || a.student_no === studentNo)));
+      const hit = (x) => x.class_id === classId && (!studentNo || x.student_no === studentNo);
+      db.attempts = db.attempts.filter((a) => !hit(a));
+      db.wallets = (db.wallets || []).filter((w) => !hit(w));
+      save(db);
+    },
+    async listWallets(classId) {
+      return (load().wallets || []).filter((w) => w.class_id === classId)
+        .map(({ pin, ...w }) => ({ ...w, has_pin: !!pin }));
+    },
+    async resetPin(classId, studentNo) {
+      const db = load();
+      const w = (db.wallets || []).find((x) => x.class_id === classId && x.student_no === studentNo);
+      if (w) Object.assign(w, { pin: null, pin_fails: 0, pin_locked_until: null });
       save(db);
     },
 
@@ -285,11 +321,79 @@ function demoApi() {
         student_no: no, student_name: (studentName || '').trim() || null,
         ...result, total_words: set.rows.length, created_at: new Date().toISOString(),
       });
+      const earned = Math.floor(result.score / 10);
+      const w = demoWallet(db, c.id, no);
+      w.coins += earned;
       save(db);
       const mine = db.attempts.filter((a) => a.class_id === c.id && a.student_no === no && a.set_id === set.id).slice(-50);
-      return { best: Math.max(...mine.map((a) => a.score)), history: mine.map((a) => ({ score: a.score, at: a.created_at })) };
+      return {
+        best: Math.max(...mine.map((a) => a.score)), history: mine.map((a) => ({ score: a.score, at: a.created_at })),
+        coins_earned: earned, coins: w.coins,
+      };
+    },
+    async getWallet(code, studentNo) {
+      const db = load();
+      const c = db.classes.find((x) => x.code === code.trim().toUpperCase());
+      if (!c) throw friendly(new Error('CLASS_NOT_FOUND'));
+      const w = (db.wallets || []).find((x) => x.class_id === c.id && x.student_no === studentNo.trim());
+      return w ? publicWallet(w) : { coins: 0, owned: ['default'], equipped: 'default', has_pin: false };
+    },
+    // supabase/schema.sql 의 shop_action 과 같은 규칙 (체험 모드용)
+    async shopAction({ code, studentNo, pin, action, item }) {
+      const db = load();
+      const c = db.classes.find((x) => x.code === code.trim().toUpperCase());
+      if (!c) throw friendly(new Error('CLASS_NOT_FOUND'));
+      if (c.settings?.shopOn === false) throw friendly(new Error('SHOP_OFF'));
+      if (!/^[0-9]{4}$/.test(pin)) throw friendly(new Error('INVALID_PIN'));
+      const price = priceOf(item);
+      if (price === undefined || !['buy', 'equip'].includes(action)) throw friendly(new Error('INVALID_ITEM'));
+      const w = demoWallet(db, c.id, studentNo.trim());
+      const locked = w.pin_locked_until && new Date(w.pin_locked_until) > new Date();
+      if (locked) return { error: 'PIN_LOCKED', minutes: Math.ceil((new Date(w.pin_locked_until) - new Date()) / 60000) };
+      const hash = await sha256(pin);
+      if (!w.pin) {
+        w.pin = hash;
+      } else if (w.pin !== hash) {
+        const fails = w.pin_fails + 1;
+        w.pin_fails = fails >= 5 ? 0 : fails;
+        w.pin_locked_until = fails >= 5 ? new Date(Date.now() + 10 * 60000).toISOString() : null;
+        save(db);
+        return { error: 'WRONG_PIN', tries_left: Math.max(0, 5 - fails) };
+      } else {
+        w.pin_fails = 0;
+        w.pin_locked_until = null;
+      }
+      if (action === 'buy' && !w.owned.includes(item)) {
+        if (w.coins < price) { save(db); return { error: 'NOT_ENOUGH_COINS', coins: w.coins, price }; }
+        w.coins -= price;
+        w.owned.push(item);
+        w.equipped = item;
+      } else if (w.owned.includes(item)) {
+        w.equipped = item;
+      } else {
+        save(db);
+        return { error: 'NOT_OWNED' };
+      }
+      save(db);
+      return publicWallet(w);
     },
   };
+}
+
+// ---------- 체험 모드 지갑 도우미 ----------
+function demoWallet(db, classId, studentNo) {
+  db.wallets = db.wallets || [];
+  let w = db.wallets.find((x) => x.class_id === classId && x.student_no === studentNo);
+  if (!w) {
+    w = { class_id: classId, student_no: studentNo, coins: 0, owned: ['default'], equipped: 'default', pin: null, pin_fails: 0, pin_locked_until: null };
+    db.wallets.push(w);
+  }
+  return w;
+}
+const publicWallet = (w) => ({ coins: w.coins, owned: [...w.owned], equipped: w.equipped, has_pin: !!w.pin });
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export const api = URL_ && KEY ? supabaseApi() : demoApi();

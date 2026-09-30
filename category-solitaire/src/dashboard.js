@@ -8,13 +8,16 @@ const TOP_N = 15; // 순위 표에 처음 보여 줄 줄 수
 
 export async function showDashboard(el, { cls, sets }) {
   let attempts = [];
+  let wallets = new Map(); // 학번 → { coins, owned, equipped, has_pin, pin_locked_until }
   let filter = ''; // 세트 이름 ('' = 전체)
   let showAllWords = false;
 
   async function load() {
     el.innerHTML = '<p class="note">결과를 불러오는 중…</p>';
     try {
-      attempts = await api.listAttempts(cls.id);
+      const [a, w] = await Promise.all([api.listAttempts(cls.id), api.listWallets(cls.id).catch(() => [])]);
+      attempts = a;
+      wallets = new Map(w.map((x) => [x.student_no, x]));
     } catch (e) {
       el.innerHTML = `<p class="form-error">${esc(e.message)}</p>`;
       return;
@@ -115,13 +118,17 @@ export async function showDashboard(el, { cls, sets }) {
         <h2 class="panel-title">학생별 기록</h2>
         <div class="table-scroll">
           <table class="data-table">
-            <thead><tr><th>학번</th><th>이름</th><th class="num">시도</th><th class="num">최고</th><th class="num">최근</th><th>최근 일시</th><th></th></tr></thead>
+            <thead><tr><th>학번</th><th>이름</th><th class="num">시도</th><th class="num">최고</th><th class="num">최근</th><th>최근 일시</th><th class="num">코인</th><th></th></tr></thead>
             <tbody>${students.map((s) => `
               <tr>
                 <td>${esc(s.no)}</td><td>${esc(s.name || '')}</td>
                 <td class="num">${s.count}</td><td class="num"><b>${s.best}</b></td><td class="num">${s.latest}</td>
                 <td class="nowrap">${fmtDate(s.latestAt)}</td>
-                <td><button type="button" class="btn small danger" data-del-student="${esc(s.no)}">삭제</button></td>
+                <td class="num">${wallets.get(s.no)?.coins ?? 0}</td>
+                <td class="nowrap">
+                  ${wallets.get(s.no)?.has_pin ? `<button type="button" class="btn small ghost" data-reset-pin="${esc(s.no)}">상점 비밀번호 초기화</button>` : ''}
+                  <button type="button" class="btn small danger" data-del-student="${esc(s.no)}">삭제</button>
+                </td>
               </tr>`).join('')}</tbody>
           </table>
         </div>
@@ -129,7 +136,7 @@ export async function showDashboard(el, { cls, sets }) {
 
       <section class="panel danger-zone">
         <h2 class="panel-title">기록 삭제</h2>
-        <p class="note">이 수업의 학생 기록을 모두 지워요. 지우기 전에 CSV로 받아 두세요.</p>
+        <p class="note">이 수업의 학생 기록과 코인·산 카드 뒷면을 모두 지워요. 지우기 전에 CSV로 받아 두세요.</p>
         <button type="button" class="btn danger" id="btn-delete-all">이 수업 기록 모두 삭제</button>
       </section>`;
 
@@ -139,8 +146,13 @@ export async function showDashboard(el, { cls, sets }) {
     el.querySelector('#btn-all-words')?.addEventListener('click', () => { showAllWords = !showAllWords; render(); });
     el.querySelectorAll('[data-del-student]').forEach((b) => b.addEventListener('click', async () => {
       const no = b.dataset.delStudent;
-      if (!confirm(`학번 ${no} 학생의 이 수업 기록을 모두 삭제할까요?`)) return;
+      if (!confirm(`학번 ${no} 학생의 이 수업 기록과 코인·산 카드 뒷면을 모두 삭제할까요?`)) return;
       try { await api.deleteAttempts(cls.id, no); await load(); } catch (e) { alert(e.message); }
+    }));
+    el.querySelectorAll('[data-reset-pin]').forEach((b) => b.addEventListener('click', async () => {
+      const no = b.dataset.resetPin;
+      if (!confirm(`학번 ${no} 학생의 상점 비밀번호를 지울까요?\n학생이 다음에 상점에서 살 때 새 비밀번호를 정해요. 코인은 그대로예요.`)) return;
+      try { await api.resetPin(cls.id, no); await load(); } catch (e) { alert(e.message); }
     }));
     el.querySelector('#btn-delete-all').addEventListener('click', async () => {
       const typed = prompt(`정말 모두 지우려면 수업 코드 ${cls.code} 를 입력하세요.`);

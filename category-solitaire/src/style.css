@@ -177,7 +177,7 @@ summary small { font-weight: 400; color: var(--ink-dim); }
 .col-empty { aspect-ratio: 3 / 4; border: 2px dashed var(--line); border-radius: 12px; }
 .back-strip {
   height: 16px; margin-bottom: 4px; border-radius: 8px;
-  background: repeating-linear-gradient(45deg, var(--card-back-1) 0 6px, var(--card-back-2) 6px 12px);
+  background: var(--back-bg);
   opacity: .85;
 }
 
@@ -210,7 +210,7 @@ summary small { font-weight: 400; color: var(--ink-dim); }
 .card.category { background: var(--gold-soft); border: 2px solid var(--gold); padding-top: 18px; }
 .card.category .card-text { color: var(--gold); }
 .card-badge { position: absolute; top: 4px; left: 0; right: 0; font-size: .6rem; font-weight: 800; color: var(--gold); white-space: nowrap; overflow: hidden; }
-.card.back { background: repeating-linear-gradient(45deg, var(--card-back-1) 0 8px, var(--card-back-2) 8px 16px); border: 2px solid var(--panel); cursor: pointer; }
+.card.back { background: var(--back-bg); border: 2px solid var(--panel); cursor: pointer; }
 .card.selected { transform: translateY(-8px); outline: 3px solid var(--accent); outline-offset: 1px; }
 .card.drag-origin { opacity: .25; }
 .drag-clone { position: fixed; z-index: 100; pointer-events: none; transform: rotate(3deg) scale(1.05); box-shadow: 0 10px 24px rgba(0,0,0,.3); cursor: grabbing; }
@@ -384,3 +384,41 @@ a.back-link { display: inline-block; text-decoration: none; }
 .qr-code b { font-family: ui-monospace, Menlo, monospace; letter-spacing: .12em; font-size: 1.4rem; color: #111; }
 .qr-sheet .btn-row { justify-content: center; margin-top: 16px; }
 .qr-sheet .btn.ghost { background: #eef1f6; color: #111; border-color: #d8dde7; text-decoration: none; display: inline-grid; place-items: center; }
+
+
+/* ===== 카드 뒷면 디자인 (상점) — 목록과 가격은 src/card-backs.js ===== */
+:root, [data-back="default"] { --back-bg: repeating-linear-gradient(45deg, var(--card-back-1) 0 8px, var(--card-back-2) 8px 16px); }
+[data-back="dots"] { --back-bg: radial-gradient(circle, #ffffffcc 2.5px, transparent 3px) 0 0 / 12px 12px, #ec4899; }
+[data-back="check"] { --back-bg: repeating-conic-gradient(#ffffff66 0 25%, transparent 0 50%) 0 0 / 16px 16px, #10b981; }
+[data-back="waves"] { --back-bg: radial-gradient(circle at 50% 100%, transparent 5px, #ffffffaa 6px 8px, transparent 9px) 0 0 / 18px 10px, linear-gradient(#38bdf8, #0369a1); }
+[data-back="sunset"] { --back-bg: linear-gradient(165deg, #ffd29d, #ff8a65 35%, #e0557a 65%, #6d3fa3); }
+[data-back="honeycomb"] { --back-bg: radial-gradient(circle, #fde68a 2.5px, transparent 3px) 0 0 / 14px 14px, radial-gradient(circle, #fde68a99 2.5px, transparent 3px) 7px 7px / 14px 14px, linear-gradient(#d97706, #92400e); }
+[data-back="stars"] { --back-bg: radial-gradient(circle at 20% 30%, #fff 1px, transparent 1.6px) 0 0 / 26px 26px, radial-gradient(circle at 70% 70%, #fde68a 1.2px, transparent 1.8px) 0 0 / 21px 21px, linear-gradient(165deg, #0b1033, #27348b); }
+[data-back="rainbow"] { --back-bg: linear-gradient(135deg, #ff6b6b, #ffd93d 25%, #6bcb77 50%, #4d96ff 75%, #9b5de5); }
+[data-back="galaxy"] { --back-bg: radial-gradient(circle at 30% 35%, #ff7ae966, transparent 40%), radial-gradient(circle at 70% 70%, #7afcff55, transparent 45%), radial-gradient(circle, #ffffffcc 1px, transparent 1.5px) 0 0 / 17px 17px, #1a0b3d; }
+[data-back="gold"] { --back-bg: repeating-linear-gradient(45deg, #ffffff33 0 2px, transparent 2px 9px), linear-gradient(135deg, #b8860b, #fcf6ba 30%, #d4a017 55%, #fbf0a8 75%, #a0740e); }
+
+/* ===== 상점 화면 ===== */
+.wallet-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  background: var(--gold-soft); border: 1px solid var(--gold); border-radius: 12px; padding: 8px 12px; margin-top: 12px; }
+.wallet-bar b, .coin-balance b { font-size: 1.2rem; }
+.coin-balance { font-size: 1.1rem; margin: 0; }
+.coin-status { font-weight: 700; color: var(--gold); margin: 8px 0 0; min-height: 1em; }
+.shop-grid { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.shop-item { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 12px 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+.shop-item.equipped { border: 2px solid var(--ok); }
+.shop-item .btn { width: 100%; }
+.shop-state { font-size: .8rem; color: var(--ink-dim); min-height: 1.2em; }
+.shop-item.equipped .shop-state { color: var(--ok); font-weight: 700; }
+.back-sample { display: block; width: 72px; aspect-ratio: 3 / 4; border-radius: 10px; border: 3px solid #fff;
+  box-shadow: var(--shadow); background: var(--back-bg); }
+
+/* ===== 비밀번호 입력 창 ===== */
+.modal-overlay { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(10, 14, 22, .55); }
+.modal { width: min(360px, 100%); display: grid; gap: 10px; background: var(--panel); color: var(--ink); border-radius: 16px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+.modal label { display: grid; gap: 4px; font-size: .9rem; color: var(--ink-dim); }
+.modal input { font: inherit; font-size: 1.4rem; letter-spacing: .5em; text-align: center; padding: 10px; min-height: 52px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--ink); }
+.modal .btn-row { margin-top: 4px; }
+.modal .form-error:empty { display: none; }

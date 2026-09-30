@@ -319,6 +319,7 @@ function showSettings(ctx, el, cls, sets) {
         </label>
         <label class="check"><input type="checkbox" name="shuffleCategories" ${s.shuffleCategories ? 'checked' : ''}/> 카테고리 카드 섞기 (끄면 칸이 처음부터 열려 쉬워요)</label>
         <label class="check"><input type="checkbox" name="timeLimitOn" ${s.timeLimitOn ? 'checked' : ''}/> 시간 제한 사용</label>
+        <label class="check"><input type="checkbox" name="shopOn" ${s.shopOn ? 'checked' : ''}/> 학생 상점 사용 (게임 점수의 1/10을 코인으로 모아 카드 뒷면 디자인을 사요)</label>
         ${num('timeLimitSec', s.timeLimitSec, 30, 1800, 10, '제한 시간(초)', '30~1800초')}
       </div>
 
@@ -358,6 +359,7 @@ function showSettings(ctx, el, cls, sets) {
       shuffleCategories: f.has('shuffleCategories'),
       timeLimitOn: f.has('timeLimitOn'),
       timeLimitSec: n('timeLimitSec'),
+      shopOn: f.has('shopOn'),
       score: {
         correct: n('correct'), wrong: n('wrong'), category: n('category'),
         secPerCard: n('secPerCard'), timeBonusPerSec: n('timeBonusPerSec'),
