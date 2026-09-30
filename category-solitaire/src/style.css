@@ -427,3 +427,22 @@ a.back-link { display: inline-block; text-decoration: none; }
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--ink); }
 .modal .btn-row { margin-top: 4px; }
 .modal .form-error:empty { display: none; }
+
+/* ===== 생기부 초안 ===== */
+.modal.wide { width: min(640px, 100%); max-height: calc(100dvh - 32px); overflow: auto; }
+.sub-title { font-size: .95rem; margin: 4px 0 0; }
+.evidence { margin: 0; padding: 10px 10px 10px 28px; background: var(--panel-2); border-radius: 10px; font-size: .88rem; line-height: 1.6; }
+.remark-prefs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.remark-prefs label, .memo-label { display: grid; gap: 4px; font-size: .88rem; color: var(--ink-dim); }
+.remark-prefs input, .remark-prefs select, .memo-label textarea, .remark-output {
+  font: inherit; font-size: .95rem; color: var(--ink); padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
+}
+.memo-label textarea, .remark-output { resize: vertical; letter-spacing: normal; text-align: left; }
+.remark-output { width: 100%; line-height: 1.6; background: var(--panel); }
+.remark-progress { width: 100%; height: 10px; accent-color: var(--accent); }
+.remark-results { margin: 0; padding-left: 20px; display: grid; gap: 10px; max-height: 40dvh; overflow: auto; }
+.remark-results p { margin: 4px 0 0; line-height: 1.6; }
+.modal.wide { grid-template-columns: minmax(0, 1fr); }
+.modal.wide input, .modal.wide select, .modal.wide textarea { width: 100%; min-width: 0; letter-spacing: normal; text-align: left; font-size: .95rem; min-height: 44px; }
+.remark-prefs > label { min-width: 0; }
+@media (max-width: 480px) { .remark-prefs { grid-template-columns: 1fr; } }

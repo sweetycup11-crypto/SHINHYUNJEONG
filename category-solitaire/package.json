@@ -12,6 +12,7 @@
     "vite": "^6.4.3"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@supabase/supabase-js": "^2.117.2",
     "chart.js": "^4.5.1",
     "qrcode": "^1.5.4",

@@ -9,6 +9,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { SAMPLE_SET } from './sample-set.js';
 import { priceOf } from './card-backs.js';
+import { demoRemark } from './remarks-demo.js';
 
 const URL_ = import.meta.env.VITE_SUPABASE_URL;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -166,6 +167,25 @@ function supabaseApi() {
       must(await sb.from('student_wallets').update({ pin_hash: null, pin_fails: 0, pin_locked_until: null })
         .eq('class_id', classId).eq('student_no', studentNo));
     },
+    // 생기부 초안: 서버 함수(api/saenggibu.js)가 로그인 토큰을 확인하고 AI를 부른다
+    async generateRemarks(payload) {
+      const { data } = await sb.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('교사 로그인이 필요해요. 다시 로그인해 주세요.');
+      let res;
+      try {
+        res = await fetch('/api/saenggibu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        throw new Error('인터넷 연결을 확인해 주세요.');
+      }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `AI 초안을 만들지 못했어요. (${res.status})`);
+      return body;
+    },
 
     // ---------- 학생 ----------
     async enterClass(code) {
@@ -290,6 +310,10 @@ function demoApi() {
     async listWallets(classId) {
       return (load().wallets || []).filter((w) => w.class_id === classId)
         .map(({ pin, ...w }) => ({ ...w, has_pin: !!pin }));
+    },
+    async generateRemarks({ students }) {
+      await new Promise((r) => setTimeout(r, 300));
+      return { results: students.map((s) => ({ id: s.id, text: demoRemark(s, s.teacher_note), evidence_note: s.attempts < 2 ? '참여가 1회뿐이라 성장 근거가 부족함 (체험 모드 예시)' : '체험 모드 예시 문장이에요.' })) };
     },
     async resetPin(classId, studentNo) {
       const db = load();
