@@ -3,6 +3,7 @@ import {
   createGame, flipStock, placeOnSlot, moveToColumn, topCardId, isFinished, unplacedWords,
 } from './game.js';
 import { liveScore, finalScore } from './settings.js';
+import { celebrate } from './celebrate.js';
 
 const DRAG_THRESHOLD = 8; // 이만큼(px) 움직여야 드래그로 본다 (그보다 작으면 탭)
 const MIN_CARD_W = 56;     // 카드 최소 너비(px)
@@ -345,7 +346,7 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
     if (ended) return;
     cleanup();
     const stats = { ...state.stats, finished, elapsedSec: Math.min(elapsedSec(), settings.timeLimitOn ? settings.timeLimitSec : Infinity) };
-    onEnd({
+    const result = {
       setName: state.setName,
       finished,
       stats,
@@ -353,7 +354,14 @@ export function startGame(root, set, baseSettings, { onEnd, onQuit }) {
       wrongLog: state.wrongLog,
       unplaced: finished ? [] : unplacedWords(state),
       explanations: Object.fromEntries(Object.values(state.cards).filter((c) => c.type === 'word').map((c) => [c.text, c])),
-    });
+    };
+    if (!finished) return onEnd(result);
+    // 모두 분류했으면 칸에 쌓인 카드로 셔플 축하 애니메이션을 보여 준 뒤 결과로 넘어간다
+    const origins = state.slots.map((slot, i) => ({
+      el: slotsEl.querySelector(`[data-slot="${i}"]`),
+      texts: [slot.category, ...slot.placed.map((id) => state.cards[id].text)],
+    })).filter((o) => o.el);
+    celebrate({ origins, back: settings.cardBack || 'default' }).then(() => onEnd(result));
   }
 
   render();

@@ -446,3 +446,36 @@ a.back-link { display: inline-block; text-decoration: none; }
 .modal.wide input, .modal.wide select, .modal.wide textarea { width: 100%; min-width: 0; letter-spacing: normal; text-align: left; font-size: .95rem; min-height: 44px; }
 .remark-prefs > label { min-width: 0; }
 @media (max-width: 480px) { .remark-prefs { grid-template-columns: 1fr; } }
+
+/* ===== 모두 분류 완료 축하 (카드 셔플 + 색종이) ===== */
+.celebrate {
+  position: fixed; inset: 0; z-index: 1000; overflow: hidden; cursor: pointer;
+  background: radial-gradient(circle at 50% 50%, rgba(20, 28, 48, .86), rgba(10, 14, 26, .94));
+  perspective: 900px; touch-action: none;
+}
+.cel-card { position: fixed; left: 0; top: 0; will-change: transform; }
+.cel-face {
+  position: absolute; inset: 0; border-radius: 9px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center;
+}
+.cel-front {
+  background: #fff; border: 1px solid #d8dde7; color: #1b2130; padding: 4px;
+  font-size: .72rem; font-weight: 700; text-align: center; word-break: keep-all; overflow: hidden;
+}
+.cel-back { background: var(--back-bg); border: 2px solid #fff; display: none; }
+.cel-card.flipped .cel-front { display: none; }
+.cel-card.flipped .cel-back { display: flex; }
+.cel-confetti { position: fixed; left: 0; top: 0; width: 9px; height: 13px; border-radius: 2px; }
+.cel-banner {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6); opacity: 0;
+  text-align: center; color: #fff; pointer-events: none; z-index: 2;
+  transition: transform .45s cubic-bezier(.2, 1.4, .4, 1), opacity .3s ease;
+}
+.cel-banner.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.cel-banner b {
+  display: block; font-size: clamp(1.8rem, 8vw, 3rem); letter-spacing: -.02em;
+  background: linear-gradient(90deg, #ffd93d, #ff9f43, #ff6b6b, #9b5de5, #4d96ff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .5));
+}
+.cel-banner span { display: block; margin-top: 8px; font-size: .9rem; opacity: .85; }
